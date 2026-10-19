@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>她薈 HER HUI - 會員系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- 頂部 Logo 與權限按鈕預留區 -->
+    <header class="header">
+        <div class="logo-container">
+            <!-- 稍後可將 src 替換為您上傳至 GitHub 的實際 Logo 圖片網址 -->
+            <img src="logo.jpg" alt="她薈 HER HUI" class="brand-logo">
+        </div>
+        
+        <!-- 管理員權限專屬區塊 (預設隱藏，驗證身分後由 JS 渲染顯示) -->
+        <nav id="top-nav" class="hidden">
+            <button id="btn-member-area" class="btn-primary">會員專區</button>
+            <button id="btn-admin-area" class="btn-secondary">管理員專區</button>
+        </nav>
+    </header>
+
+    <!-- 主要內容動態渲染區 -->
+    <main id="app-content" class="container">
+        <div class="loading-text">系統載入中，請稍候...</div>
+    </main>
+
+    <!-- 載入 LINE LIFF SDK 與系統邏輯 -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
