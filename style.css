@@ -1,0 +1,93 @@
+/* 定義品牌專屬色系[cite: 2] */
+:root {
+    --bg-moonlight: #F8F5EF; /* 月光白[cite: 2] */
+    --text-inkblue: #1B2744; /* 薈墨藍[cite: 2] */
+    --accent-pink: #EBD6CF;  /* 柔漾粉[cite: 2] */
+    --accent-gold: #BF9A5A;  /* 薈金[cite: 2] */
+}
+
+/* 全域重置與基礎設定 */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-moonlight);
+    color: var(--text-inkblue);
+    font-family: "PingFang TC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+}
+
+/* 頂部 Logo 設計 */
+.header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+}
+
+.logo-container {
+    display: inline-block;
+    border-radius: 24px; /* 圓倒角設定 */
+    box-shadow: 0 4px 15px rgba(27, 39, 68, 0.1);
+    padding: 4px;
+    background: linear-gradient(135deg, var(--accent-gold), transparent);
+}
+
+.brand-logo {
+    width: 120px;
+    height: auto;
+    border-radius: 20px; /* 內部圖片圓倒角 */
+    display: block;
+}
+
+/* 權限按鈕列 */
+#top-nav {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* 按鈕風格設計 */
+button {
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background-color: var(--text-inkblue);
+    color: var(--bg-moonlight);
+}
+
+.btn-secondary {
+    background-color: var(--accent-gold);
+    color: #fff;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* 內容容器 */
+.container {
+    padding: 1rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.loading-text {
+    text-align: center;
+    color: var(--accent-gold);
+    font-weight: bold;
+    margin-top: 2rem;
+}
