@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 包含註冊、會員專區、活動報名與管理員系統)
+ * 說明：前端核心邏輯 (完整版 - 包含修復管理員鎖定 Bug)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -112,7 +112,12 @@ async function submitRegistration() {
         const result = await response.json();
         
         if (result.success) {
-            renderMemberDashboard({ isAdmin: false, status: '準會員', profile: { '真實姓名': userData.realName } });
+            // 🌟 修正：接收後端回傳的管理員狀態，即使是準會員也能解鎖功能
+            renderMemberDashboard({ 
+                isAdmin: result.data.isAdmin, 
+                status: '準會員', 
+                profile: { '真實姓名': userData.realName } 
+            });
         } else { 
             alert("註冊失敗：" + result.message); 
             btn.innerText = "提交申請"; 
@@ -132,6 +137,7 @@ async function submitRegistration() {
 function renderMemberDashboard(userData) {
     const topNav = document.getElementById('top-nav');
     
+    // 如果系統判定你有管理員權限，無條件顯示按鈕
     if (userData.isAdmin) {
         topNav.classList.remove('hidden');
         document.getElementById('btn-admin-area').onclick = () => showAdminLoginModal();
@@ -148,6 +154,7 @@ function renderMemberDashboard(userData) {
         </div>
     `;
 
+    // 🌟 只要是正式會員或是「管理員」，就會無條件解鎖活動報名區塊
     if (userData.status === '正式會員' || userData.isAdmin) {
         html += `
             <div id="member-loading" class="loading-text">正在載入最新活動與您的歷史紀錄...</div>
@@ -157,6 +164,7 @@ function renderMemberDashboard(userData) {
         document.getElementById('app-content').innerHTML = html;
         fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
     } else {
+        // 如果只是一般的準會員，就會看到這個鎖定畫面
         html += `
             <div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);">
                 <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">鎖定中的專屬功能</h4>
@@ -331,21 +339,15 @@ function buildAdminDashboardUI(data) {
     
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
 
-    // 區塊一：到期提醒
     html += `<h4 style="color: #d9534f; margin-bottom: 10px;">⚠️ 即將到期會員提醒 (${data.expiring.length} 筆)</h4>`;
     if (data.expiring.length === 0) {
         html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
     } else {
         data.expiring.forEach(m => {
-            html += `
-                <div class="data-card data-card-danger">
-                    <p><strong>${m.name}</strong> (${m.phone}) - 到期日: ${m.expiryDate}</p>
-                </div>
-            `;
+            html += `<div class="data-card data-card-danger"><p><strong>${m.name}</strong> (${m.phone}) - 到期日: ${m.expiryDate}</p></div>`;
         });
     }
 
-    // 區塊二：準會員審核
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">⏳ 準會員審核區 (${data.pending.length} 筆)</h4>`;
     if (data.pending.length === 0) {
         html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
@@ -363,7 +365,6 @@ function buildAdminDashboardUI(data) {
         });
     }
 
-    // 區塊三：活動發布設定
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 活動及通告發布設定</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink);">
@@ -388,18 +389,13 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
-    // 區塊四：正式會員名單
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">👥 正式會員名單 (${data.active.length} 筆)</h4>
         <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名或手機號碼..." onkeyup="filterMembers()">
         <div id="member-list-container">
     `;
     data.active.forEach(m => {
-        html += `
-            <div class="data-card member-item">
-                <p><strong>${m.name}</strong> (${m.phone}) - 到期日: ${m.expiryDate}</p>
-            </div>
-        `;
+        html += `<div class="data-card member-item"><p><strong>${m.name}</strong> (${m.phone}) - 到期日: ${m.expiryDate}</p></div>`;
     });
     html += `</div>`;
 
