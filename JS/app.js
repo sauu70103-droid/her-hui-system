@@ -1,11 +1,14 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 包含修復管理員鎖定 Bug)
+ * 說明：前端核心邏輯 (完整版 - 表單標籤優化、審核全資訊展開、四階會員等級)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
 const LIFF_ID = '2012102588-g88gt5pQ'; 
 let currentLiffProfile = null; 
+
+// 🌟 定義已開通的正式會員等級陣列
+const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
 document.addEventListener('DOMContentLoaded', () => { 
     initializeApp(); 
@@ -49,18 +52,43 @@ async function checkUserRoleAndStatus(uid) {
 /* ================= 準會員註冊區塊 ================= */
 
 function renderRegistrationForm() {
+    // 🌟 更新：將 Placeholder 移出變為上方的 Label，並靠左對齊方便核對
+    const labelStyle = "font-size: 0.85rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 5px; text-align: left;";
+    const inputStyle = "width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem; margin-bottom: 1rem;";
+
     return `
         <div style="background-color: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05);">
             <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem; text-align: center;">準會員申請表</h3>
             <p style="font-size: 0.9rem; margin-bottom: 1.5rem; text-align: center; color: #666;">請完整填寫以下資訊以完成系統綁定</p>
             <form id="reg-form">
-                <div style="margin-bottom: 1rem;"><input type="text" id="input-name" placeholder="真實姓名" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
-                <div style="margin-bottom: 1rem;"><input type="tel" id="input-phone" placeholder="手機號碼" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
-                <div style="margin-bottom: 1rem;"><input type="email" id="input-email" placeholder="Email" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
-                <div style="margin-bottom: 1rem;"><input type="text" id="input-industry" placeholder="產業" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
-                <div style="margin-bottom: 1rem;"><input type="text" id="input-company" placeholder="公司名稱" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
-                <div style="margin-bottom: 1rem;"><input type="text" id="input-jobtitle" placeholder="職稱" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
-                <div style="margin-bottom: 1.5rem;"><input type="text" id="input-referrer" placeholder="介紹人" style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem;" required></div>
+                <div>
+                    <label style="${labelStyle}">真實姓名</label>
+                    <input type="text" id="input-name" style="${inputStyle}" required>
+                </div>
+                <div>
+                    <label style="${labelStyle}">手機號碼</label>
+                    <input type="tel" id="input-phone" style="${inputStyle}" required>
+                </div>
+                <div>
+                    <label style="${labelStyle}">Email</label>
+                    <input type="email" id="input-email" style="${inputStyle}" required>
+                </div>
+                <div>
+                    <label style="${labelStyle}">產業</label>
+                    <input type="text" id="input-industry" style="${inputStyle}" required>
+                </div>
+                <div>
+                    <label style="${labelStyle}">公司名稱</label>
+                    <input type="text" id="input-company" style="${inputStyle}" required>
+                </div>
+                <div>
+                    <label style="${labelStyle}">職稱</label>
+                    <input type="text" id="input-jobtitle" style="${inputStyle}" required>
+                </div>
+                <div style="margin-bottom: 0.5rem;">
+                    <label style="${labelStyle}">介紹人</label>
+                    <input type="text" id="input-referrer" style="${inputStyle}" required>
+                </div>
                 <button type="button" id="submit-btn" class="btn-primary" style="width: 100%; padding: 12px; font-size: 1.1rem; border-radius: 8px;" onclick="submitRegistration()">提交申請</button>
             </form>
         </div>
@@ -112,11 +140,20 @@ async function submitRegistration() {
         const result = await response.json();
         
         if (result.success) {
-            // 🌟 修正：接收後端回傳的管理員狀態，即使是準會員也能解鎖功能
+            let newProfile = {
+                '真實姓名': userData.realName,
+                '手機號碼': "'" + userData.phone,
+                'Email': userData.email,
+                '產業': userData.industry,
+                '公司名稱': userData.company,
+                '職稱': userData.jobTitle,
+                '介紹人': userData.referrer,
+                '授權到期日': '無'
+            };
             renderMemberDashboard({ 
                 isAdmin: result.data.isAdmin, 
                 status: '準會員', 
-                profile: { '真實姓名': userData.realName } 
+                profile: newProfile 
             });
         } else { 
             alert("註冊失敗：" + result.message); 
@@ -136,14 +173,53 @@ async function submitRegistration() {
 
 function renderMemberDashboard(userData) {
     const topNav = document.getElementById('top-nav');
-    
-    // 如果系統判定你有管理員權限，無條件顯示按鈕
     if (userData.isAdmin) {
         topNav.classList.remove('hidden');
         document.getElementById('btn-admin-area').onclick = () => showAdminLoginModal();
     } else {
         topNav.classList.add('hidden');
     }
+
+    let expiryWarningHtml = '';
+    let formattedExpDate = '無';
+    let rawExpDate = userData.profile['授權到期日'];
+
+    // 🌟 判斷是否為已核准之身分
+    let isApprovedMember = APPROVED_ROLES.includes(userData.status);
+
+    if (isApprovedMember && rawExpDate && rawExpDate !== '無') {
+        let expDate = new Date(rawExpDate);
+        formattedExpDate = expDate.toISOString().split('T')[0];
+        
+        let twoMonthsLater = new Date();
+        twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
+        
+        if (expDate <= twoMonthsLater) {
+            expiryWarningHtml = `
+                <div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                    <p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 續約提醒</p>
+                    <p style="color: #d9534f; font-size: 0.85rem; margin-top: 5px;">您的${userData.status}資格即將於 <strong>${formattedExpDate}</strong> 到期，請留意後續續約通知。</p>
+                </div>
+            `;
+        }
+    }
+
+    let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
+    let profileHtml = `
+        <div class="data-card" style="border-left-color: var(--text-inkblue); text-align: left; margin-bottom: 1.5rem;">
+            <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
+            <div style="display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 0.9rem; color: #444;">
+                <p><strong>真實姓名：</strong> ${userData.profile['真實姓名'] || '-'}</p>
+                <p><strong>手機號碼：</strong> ${displayPhone}</p>
+                <p><strong>Email：</strong> ${userData.profile['Email'] || '-'}</p>
+                <p><strong>產業：</strong> ${userData.profile['產業'] || '-'}</p>
+                <p><strong>公司名稱：</strong> ${userData.profile['公司名稱'] || '-'}</p>
+                <p><strong>職稱：</strong> ${userData.profile['職稱'] || '-'}</p>
+                <p><strong>介紹人：</strong> ${userData.profile['介紹人'] || '-'}</p>
+                <p><strong>授權到期日：</strong> <span style="color: var(--accent-gold); font-weight:bold;">${formattedExpDate}</span></p>
+            </div>
+        </div>
+    `;
 
     let html = `
         <div style="background-color: #fff; padding: 2rem 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: center; margin-bottom: 1.5rem;">
@@ -152,26 +228,28 @@ function renderMemberDashboard(userData) {
                 目前的會員等級：${userData.status}
             </div>
         </div>
+        ${expiryWarningHtml}
+        ${profileHtml}
     `;
 
-    // 🌟 只要是正式會員或是「管理員」，就會無條件解鎖活動報名區塊
-    if (userData.status === '正式會員' || userData.isAdmin) {
+    // 🌟 修改：擁有任何一種正式等級，或是管理員，就解鎖功能
+    if (isApprovedMember || userData.isAdmin) {
         html += `
             <div id="member-loading" class="loading-text">正在載入最新活動與您的歷史紀錄...</div>
-            <div id="activity-section" style="display:none;"></div>
-            <div id="history-section" style="display:none; margin-top: 2rem;"></div>
+            <div id="activity-section" style="display:none; text-align: left;"></div>
+            <div id="history-section" style="display:none; margin-top: 2rem; text-align: left;"></div>
         `;
         document.getElementById('app-content').innerHTML = html;
         fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
     } else {
-        // 如果只是一般的準會員，就會看到這個鎖定畫面
+        let lockMessage = userData.status === '已駁回' 
+            ? '您的申請目前未能通過審核。如有疑問，請聯繫管理員。' 
+            : '您的申請已經送出！目前狀態為「準會員」。<br>請等待管理員確認授權並開通正式會員資格後，即可解鎖「活動報名」與「歷史紀錄」等專屬功能。';
+            
         html += `
             <div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);">
-                <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">鎖定中的專屬功能</h4>
-                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">
-                    您的申請已經送出！目前狀態為「準會員」。<br>
-                    請等待管理員確認授權並開通正式會員資格後，即可解鎖「活動報名」與「歷史紀錄」等專屬功能。
-                </p>
+                <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">功能鎖定中</h4>
+                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">${lockMessage}</p>
             </div>
         `;
         document.getElementById('app-content').innerHTML = html;
@@ -189,7 +267,6 @@ async function fetchMemberActivitiesAndHistory(uid) {
 
         document.getElementById('member-loading').style.display = 'none';
 
-        // 渲染活動列表
         let actHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">📅 最新活動與報名</h4>`;
         if (actResult.data.length === 0) {
             actHtml += `<p style="font-size:0.9rem; color:#666;">近期尚無活動發布。</p>`;
@@ -210,7 +287,6 @@ async function fetchMemberActivitiesAndHistory(uid) {
         actSec.innerHTML = actHtml;
         actSec.style.display = 'block';
 
-        // 渲染歷史紀錄
         let histHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">🕒 過往歷史紀錄</h4>`;
         if (histResult.data.length === 0) {
             histHtml += `<p style="font-size:0.9rem; color:#666;">目前尚無紀錄。</p>`;
@@ -344,22 +420,37 @@ function buildAdminDashboardUI(data) {
         html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
     } else {
         data.expiring.forEach(m => {
-            html += `<div class="data-card data-card-danger"><p><strong>${m.name}</strong> (${m.phone}) - 到期日: ${m.expiryDate}</p></div>`;
+            html += `<div class="data-card data-card-danger"><p><strong>${m.name}</strong> (${m.phone}) - [${m.status}] 到期日: ${m.expiryDate}</p></div>`;
         });
     }
 
+    // 🌟 更新：展開所有資訊，並加入會員等級下拉選單
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">⏳ 準會員審核區 (${data.pending.length} 筆)</h4>`;
     if (data.pending.length === 0) {
         html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
     } else {
         data.pending.forEach(m => {
             html += `
-                <div class="data-card" id="pending-card-${m.uid}">
-                    <p><strong>${m.name}</strong> (${m.phone}) - 產業: ${m.industry}</p>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">介紹人: ${m.referrer}</p>
-                    <label style="font-size: 0.9rem; font-weight: bold;">設定授權到期日：</label>
-                    <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 10px;">
-                    <button class="btn-secondary" style="width: 100%;" onclick="approveMemberBtn('${m.uid}')">確認核准並開通</button>
+                <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
+                    <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email}</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司 / 職稱: ${m.company} / ${m.jobTitle}</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #ddd;">產業: ${m.industry} | 介紹人: ${m.referrer}</p>
+                    
+                    <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級：</label>
+                    <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;">
+                        <option value="一般會員">一般會員</option>
+                        <option value="她薈會員">她薈會員</option>
+                        <option value="創始會員">創始會員</option>
+                    </select>
+
+                    <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">設定授權到期日：</label>
+                    <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 15px;">
+                    
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 10px 5px;" onclick="rejectMemberBtn('${m.uid}')">駁回申請</button>
+                        <button class="btn-secondary" style="flex: 2; padding: 10px 5px;" onclick="approveMemberBtn('${m.uid}')">確認核准並開通</button>
+                    </div>
                 </div>
             `;
         });
@@ -395,7 +486,11 @@ function buildAdminDashboardUI(data) {
         <div id="member-list-container">
     `;
     data.active.forEach(m => {
-        html += `<div class="data-card member-item"><p><strong>${m.name}</strong> (${m.phone}) - 到期日: ${m.expiryDate}</p></div>`;
+        html += `
+            <div class="data-card member-item">
+                <p><strong>${m.name}</strong> (${m.phone}) - [${m.status}] 到期日: ${m.expiryDate}</p>
+            </div>
+        `;
     });
     html += `</div>`;
 
@@ -410,16 +505,23 @@ function filterMembers() {
     });
 }
 
+// 🌟 更新：抓取前端選單的值，並傳送給後端
 async function approveMemberBtn(targetUid) {
     const dateInput = document.getElementById(`date-${targetUid}`).value;
-    if (!dateInput) return alert('請選擇到期日');
+    const levelInput = document.getElementById(`level-${targetUid}`).value;
     
-    if (!confirm('確認升級為正式會員？')) return;
+    if (!dateInput) return alert('請選擇到期日');
+    if (!confirm(`確認將此人升級為「${levelInput}」嗎？`)) return;
     
     try {
         const response = await fetch(GAS_API_URL, {
             method: 'POST', 
-            body: JSON.stringify({ action: 'approveMember', targetUid: targetUid, expiryDate: dateInput }),
+            body: JSON.stringify({ 
+                action: 'approveMember', 
+                targetUid: targetUid, 
+                expiryDate: dateInput,
+                memberLevel: levelInput
+            }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
@@ -429,6 +531,28 @@ async function approveMemberBtn(targetUid) {
             document.getElementById(`pending-card-${targetUid}`).remove(); 
         } else {
             alert('核准失敗，請稍後重試。');
+        }
+    } catch (error) { 
+        alert('連線異常'); 
+    }
+}
+
+async function rejectMemberBtn(targetUid) {
+    if (!confirm('確定要駁回此會員的申請嗎？此動作將標記為已駁回。')) return;
+    
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', 
+            body: JSON.stringify({ action: 'rejectMember', targetUid: targetUid }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        
+        if (result.success) { 
+            alert('已成功駁回！'); 
+            document.getElementById(`pending-card-${targetUid}`).remove(); 
+        } else {
+            alert('駁回失敗，請稍後重試。');
         }
     } catch (error) { 
         alert('連線異常'); 
