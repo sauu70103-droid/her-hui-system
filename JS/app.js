@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 高級質感個人憑證介面、活動照片上傳展示)
+ * 說明：前端核心邏輯 (完整版 - 加入精確時間活動設定與正式會員管理功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -8,7 +8,6 @@ const LIFF_ID = '2012102588-g88gt5pQ';
 let currentLiffProfile = null; 
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
-// 🌟 全域變數：暫存欲上傳的媒體 Base64 資料
 let activityMediaBuffer = { base64: null, mimeType: null };
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
@@ -118,7 +117,6 @@ function renderMemberDashboard(userData) {
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
 
-    // 🌟 升級：頂級質感的專屬會員數位憑證
     let profileHtml = `
         <div style="background: linear-gradient(145deg, #ffffff, #fcfaf5); border: 1px solid var(--accent-gold); border-radius: 16px; padding: 2rem 1.5rem; box-shadow: 0 10px 30px rgba(191, 154, 90, 0.15); position: relative; overflow: hidden; margin-bottom: 2rem;">
             <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: radial-gradient(circle, var(--accent-gold) 0%, transparent 70%); opacity: 0.1; border-radius: 50%;"></div>
@@ -189,15 +187,17 @@ async function fetchMemberActivitiesAndHistory(uid) {
             actHtml += `<p style="font-size:0.9rem; color:#666;">近期尚無活動發布。</p>`;
         } else {
             actResult.data.forEach(act => {
-                // 🌟 若有媒體，則顯示宣傳圖片
                 let mediaDisplay = act.media ? `<img src="${act.media}" style="width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">` : '';
-                
+                // 替換 T 字元，讓 datetime-local 的資料看起來更順眼
+                let formattedDate = act.date.replace('T', ' ');
+                let formattedDeadline = act.deadline.replace('T', ' ');
+
                 actHtml += `
                     <div class="data-card" style="border-left-color: var(--accent-gold);">
                         ${mediaDisplay}
                         <h4 style="color: var(--text-inkblue); margin-bottom: 5px;">${act.name}</h4>
-                        <p style="font-size: 0.85rem; color: #666;">📍 ${act.location} | 🕒 ${act.date}</p>
-                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">💵 費用: ${act.fee} (截止: ${act.deadline})</p>
+                        <p style="font-size: 0.85rem; color: #666;">📍 ${act.location} | 🕒 ${formattedDate}</p>
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">💵 費用: ${act.fee} (截止: ${formattedDeadline})</p>
                         <p style="font-size: 0.9rem; margin-bottom: 15px;">${act.desc}</p>
                         <button class="btn-primary" style="width: 100%;" onclick="registerActivityBtn('${act.id}', '${act.name}')">立即報名</button>
                     </div>
@@ -325,7 +325,7 @@ function buildAdminDashboardUI(data) {
         `;
     });
 
-    // 🌟 新增：檔案上傳區塊
+    // 🌟 活動設定區塊 (升級：精確到分鐘的 datetime-local)
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 活動及通告發布設定</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink);">
@@ -339,8 +339,8 @@ function buildAdminDashboardUI(data) {
                 <option value="內部通告">內部通告</option><option value="跨產業聯誼">跨產業聯誼</option>
             </select>
             <div style="display:flex; gap:10px;">
-                <div style="flex:1;"><label style="font-size:0.8rem;">活動日期</label><input type="date" id="act-date" class="admin-search-bar"></div>
-                <div style="flex:1;"><label style="font-size:0.8rem;">報名截止</label><input type="date" id="act-deadline" class="admin-search-bar"></div>
+                <div style="flex:1;"><label style="font-size:0.8rem;">活動日期時間</label><input type="datetime-local" id="act-date" class="admin-search-bar"></div>
+                <div style="flex:1;"><label style="font-size:0.8rem;">報名截止時間</label><input type="datetime-local" id="act-deadline" class="admin-search-bar"></div>
             </div>
             <input type="text" id="act-location" class="admin-search-bar" placeholder="活動地點 (或線上連結)">
             <div style="display:flex; gap:10px;">
@@ -352,10 +352,31 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
+    // 🌟 正式會員管理區塊 (升級：公司資訊、延期操作、停權操作與全面搜尋)
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">👥 正式會員名單 (${data.active.length} 筆)</h4>
-             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋..." onkeyup="filterMembers()">
+             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()">
              <div id="member-list-container">`;
-    data.active.forEach(m => html += `<div class="data-card member-item"><p><strong>${m.name}</strong> (${m.phone}) - [${m.status}]</p></div>`);
+    data.active.forEach(m => {
+        html += `
+            <div class="data-card member-item" id="active-card-${m.uid}" style="text-align: left;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+                    <p style="margin: 0; font-size: 1.05rem;"><strong>${m.name}</strong> <span style="font-size: 0.85rem; color: var(--accent-gold);">[${m.status}]</span></p>
+                    <span style="font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px; color: #555;">${m.phone}</span>
+                </div>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司: ${m.company || '-'}</p>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">目前到期日: <strong id="display-date-${m.uid}">${m.expiryDate}</strong></p>
+                
+                <div style="background: #fdfdfd; padding: 10px; border-radius: 6px; border: 1px dashed #ddd;">
+                    <label style="font-size: 0.85rem; font-weight: bold; display: block; margin-bottom: 5px;">延長到期日：</label>
+                    <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                        <input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${m.expiryDate}" style="margin-bottom: 0; flex: 2; padding: 8px;">
+                        <button class="btn-secondary" style="flex: 1; padding: 8px; font-size: 0.85rem;" onclick="extendMemberBtn('${m.uid}')">更新延期</button>
+                    </div>
+                    <button class="btn-secondary" style="background-color: #d9534f; width: 100%; padding: 8px; font-size: 0.85rem;" onclick="terminateMemberBtn('${m.uid}', '${m.name}')">停止會籍 (停權)</button>
+                </div>
+            </div>
+        `;
+    });
     html += `</div>`;
 
     document.getElementById('app-content').innerHTML = html;
@@ -363,7 +384,9 @@ function buildAdminDashboardUI(data) {
 
 function filterMembers() {
     const input = document.getElementById('member-search').value.toLowerCase();
-    document.querySelectorAll('.member-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none");
+    document.querySelectorAll('.member-item').forEach(item => {
+        item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none";
+    });
 }
 
 async function approveMemberBtn(targetUid) {
@@ -394,7 +417,42 @@ async function rejectMemberBtn(targetUid) {
     } catch (error) { alert('連線異常'); }
 }
 
-// 🌟 處理前端檔案讀取並轉換為 Base64
+// 🌟 新增：觸發延長到期日 API
+async function extendMemberBtn(targetUid) {
+    const newDate = document.getElementById(`extend-date-${targetUid}`).value;
+    if (!newDate) return alert('請選擇新的到期日');
+    if (!confirm(`確認將到期日延長至 ${newDate} 嗎？`)) return;
+
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'extendMemberExpiry', targetUid: targetUid, newDate: newDate }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        if (result.success) { 
+            alert('已成功延長到期日！'); 
+            document.getElementById(`display-date-${targetUid}`).innerText = newDate;
+        } else alert('更新失敗');
+    } catch (error) { alert('連線異常'); }
+}
+
+// 🌟 新增：觸發停權 API
+async function terminateMemberBtn(targetUid, memberName) {
+    if (!confirm(`⚠️ 警告：確定要停止「${memberName}」的會籍嗎？此動作會將其狀態改為「已停權」。`)) return;
+
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'terminateMember', targetUid: targetUid }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        if (result.success) { 
+            alert('會籍已終止。'); 
+            document.getElementById(`active-card-${targetUid}`).remove();
+        } else alert('停權失敗');
+    } catch (error) { alert('連線異常'); }
+}
+
 function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
