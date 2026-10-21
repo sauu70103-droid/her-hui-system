@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 加入精確時間活動設定與正式會員管理功能)
+ * 說明：前端核心邏輯 (完整版 - 優化活動發布表單為上下排列，解決手機版破版問題)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -188,7 +188,6 @@ async function fetchMemberActivitiesAndHistory(uid) {
         } else {
             actResult.data.forEach(act => {
                 let mediaDisplay = act.media ? `<img src="${act.media}" style="width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">` : '';
-                // 替換 T 字元，讓 datetime-local 的資料看起來更順眼
                 let formattedDate = act.date.replace('T', ' ');
                 let formattedDeadline = act.deadline.replace('T', ' ');
 
@@ -325,34 +324,46 @@ function buildAdminDashboardUI(data) {
         `;
     });
 
-    // 🌟 活動設定區塊 (升級：精確到分鐘的 datetime-local)
+    // 🌟 修正排版：全部改為上下獨立顯示，解決手機版擠壓破版問題
+    const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
+    
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 活動及通告發布設定</h4>
-        <div class="data-card" style="border-left-color: var(--accent-pink);">
-            <input type="text" id="act-name" class="admin-search-bar" placeholder="活動/通告名稱" required>
+        <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;">
+            <label style="${labelStyle}">活動/通告名稱</label>
+            <input type="text" id="act-name" class="admin-search-bar" placeholder="請輸入活動名稱" required>
             
-            <label style="font-size: 0.8rem; font-weight:bold;">上傳活動媒體 (照片/海報)</label>
+            <label style="${labelStyle}">上傳活動媒體 (照片/海報)</label>
             <input type="file" id="act-media" class="admin-search-bar" accept="image/*,video/*" onchange="handleFileUpload(event)">
             
+            <label style="${labelStyle}">活動類型</label>
             <select id="act-type" class="admin-search-bar">
                 <option value="實體課程">實體課程</option><option value="線上講座">線上講座</option>
                 <option value="內部通告">內部通告</option><option value="跨產業聯誼">跨產業聯誼</option>
             </select>
-            <div style="display:flex; gap:10px;">
-                <div style="flex:1;"><label style="font-size:0.8rem;">活動日期時間</label><input type="datetime-local" id="act-date" class="admin-search-bar"></div>
-                <div style="flex:1;"><label style="font-size:0.8rem;">報名截止時間</label><input type="datetime-local" id="act-deadline" class="admin-search-bar"></div>
-            </div>
-            <input type="text" id="act-location" class="admin-search-bar" placeholder="活動地點 (或線上連結)">
-            <div style="display:flex; gap:10px;">
-                <div style="flex:1;"><input type="text" id="act-fee" class="admin-search-bar" placeholder="費用 (如: 500或免費)"></div>
-                <div style="flex:1;"><input type="number" id="act-capacity" class="admin-search-bar" placeholder="人數限制"></div>
-            </div>
-            <textarea id="act-desc" class="admin-search-bar" placeholder="活動簡介與大綱..." rows="3"></textarea>
-            <button class="btn-primary" id="submit-act-btn" style="width: 100%; margin-top: 10px;" onclick="submitActivity()">發布活動</button>
+            
+            <label style="${labelStyle}">活動日期時間</label>
+            <input type="datetime-local" id="act-date" class="admin-search-bar">
+            
+            <label style="${labelStyle}">報名截止時間</label>
+            <input type="datetime-local" id="act-deadline" class="admin-search-bar">
+            
+            <label style="${labelStyle}">活動地點 (或線上連結)</label>
+            <input type="text" id="act-location" class="admin-search-bar" placeholder="輸入地點">
+            
+            <label style="${labelStyle}">費用 (如: 500或免費)</label>
+            <input type="text" id="act-fee" class="admin-search-bar" placeholder="設定費用">
+            
+            <label style="${labelStyle}">人數限制</label>
+            <input type="number" id="act-capacity" class="admin-search-bar" placeholder="設定名額上限">
+            
+            <label style="${labelStyle}">活動簡介與大綱</label>
+            <textarea id="act-desc" class="admin-search-bar" placeholder="在此輸入活動詳情..." rows="4"></textarea>
+            
+            <button class="btn-primary" id="submit-act-btn" style="width: 100%; margin-top: 15px;" onclick="submitActivity()">發布活動</button>
         </div>
     `;
 
-    // 🌟 正式會員管理區塊 (升級：公司資訊、延期操作、停權操作與全面搜尋)
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">👥 正式會員名單 (${data.active.length} 筆)</h4>
              <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()">
              <div id="member-list-container">`;
@@ -417,7 +428,6 @@ async function rejectMemberBtn(targetUid) {
     } catch (error) { alert('連線異常'); }
 }
 
-// 🌟 新增：觸發延長到期日 API
 async function extendMemberBtn(targetUid) {
     const newDate = document.getElementById(`extend-date-${targetUid}`).value;
     if (!newDate) return alert('請選擇新的到期日');
@@ -436,7 +446,6 @@ async function extendMemberBtn(targetUid) {
     } catch (error) { alert('連線異常'); }
 }
 
-// 🌟 新增：觸發停權 API
 async function terminateMemberBtn(targetUid, memberName) {
     if (!confirm(`⚠️ 警告：確定要停止「${memberName}」的會籍嗎？此動作會將其狀態改為「已停權」。`)) return;
 
