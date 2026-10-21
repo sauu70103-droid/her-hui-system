@@ -1,28 +1,22 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 表單標籤優化、審核全資訊展開、四階會員等級)
+ * 說明：前端核心邏輯 (完整版 - 高級質感個人憑證介面、活動照片上傳展示)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
 const LIFF_ID = '2012102588-g88gt5pQ'; 
 let currentLiffProfile = null; 
-
-// 🌟 定義已開通的正式會員等級陣列
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
-document.addEventListener('DOMContentLoaded', () => { 
-    initializeApp(); 
-});
+// 🌟 全域變數：暫存欲上傳的媒體 Base64 資料
+let activityMediaBuffer = { base64: null, mimeType: null };
 
-/* ================= 系統初始化與身分驗證 ================= */
+document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
 
 async function initializeApp() {
     try {
         await liff.init({ liffId: LIFF_ID });
-        if (!liff.isLoggedIn()) { 
-            liff.login(); 
-            return; 
-        }
+        if (!liff.isLoggedIn()) { liff.login(); return; }
         currentLiffProfile = await liff.getProfile();
         await checkUserRoleAndStatus(currentLiffProfile.userId);
     } catch (error) {
@@ -33,62 +27,31 @@ async function initializeApp() {
 async function checkUserRoleAndStatus(uid) {
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: 'checkUser', uid: uid }),
+            method: 'POST', body: JSON.stringify({ action: 'checkUser', uid: uid }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
         
-        if (result.success && result.data.isRegistered) {
-            renderMemberDashboard(result.data);
-        } else {
-            document.getElementById('app-content').innerHTML = renderRegistrationForm();
-        }
-    } catch (error) { 
-        document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">伺服器連線發生錯誤。</p>`; 
-    }
+        if (result.success && result.data.isRegistered) renderMemberDashboard(result.data);
+        else document.getElementById('app-content').innerHTML = renderRegistrationForm();
+    } catch (error) { document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center;">伺服器連線發生錯誤。</p>`; }
 }
 
-/* ================= 準會員註冊區塊 ================= */
-
 function renderRegistrationForm() {
-    // 🌟 更新：將 Placeholder 移出變為上方的 Label，並靠左對齊方便核對
     const labelStyle = "font-size: 0.85rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 5px; text-align: left;";
     const inputStyle = "width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem; margin-bottom: 1rem;";
-
     return `
         <div style="background-color: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05);">
             <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem; text-align: center;">準會員申請表</h3>
             <p style="font-size: 0.9rem; margin-bottom: 1.5rem; text-align: center; color: #666;">請完整填寫以下資訊以完成系統綁定</p>
             <form id="reg-form">
-                <div>
-                    <label style="${labelStyle}">真實姓名</label>
-                    <input type="text" id="input-name" style="${inputStyle}" required>
-                </div>
-                <div>
-                    <label style="${labelStyle}">手機號碼</label>
-                    <input type="tel" id="input-phone" style="${inputStyle}" required>
-                </div>
-                <div>
-                    <label style="${labelStyle}">Email</label>
-                    <input type="email" id="input-email" style="${inputStyle}" required>
-                </div>
-                <div>
-                    <label style="${labelStyle}">產業</label>
-                    <input type="text" id="input-industry" style="${inputStyle}" required>
-                </div>
-                <div>
-                    <label style="${labelStyle}">公司名稱</label>
-                    <input type="text" id="input-company" style="${inputStyle}" required>
-                </div>
-                <div>
-                    <label style="${labelStyle}">職稱</label>
-                    <input type="text" id="input-jobtitle" style="${inputStyle}" required>
-                </div>
-                <div style="margin-bottom: 0.5rem;">
-                    <label style="${labelStyle}">介紹人</label>
-                    <input type="text" id="input-referrer" style="${inputStyle}" required>
-                </div>
+                <div><label style="${labelStyle}">真實姓名</label><input type="text" id="input-name" style="${inputStyle}" required></div>
+                <div><label style="${labelStyle}">手機號碼</label><input type="tel" id="input-phone" style="${inputStyle}" required></div>
+                <div><label style="${labelStyle}">Email</label><input type="email" id="input-email" style="${inputStyle}" required></div>
+                <div><label style="${labelStyle}">產業</label><input type="text" id="input-industry" style="${inputStyle}" required></div>
+                <div><label style="${labelStyle}">公司名稱</label><input type="text" id="input-company" style="${inputStyle}" required></div>
+                <div><label style="${labelStyle}">職稱</label><input type="text" id="input-jobtitle" style="${inputStyle}" required></div>
+                <div style="margin-bottom: 0.5rem;"><label style="${labelStyle}">介紹人</label><input type="text" id="input-referrer" style="${inputStyle}" required></div>
                 <button type="button" id="submit-btn" class="btn-primary" style="width: 100%; padding: 12px; font-size: 1.1rem; border-radius: 8px;" onclick="submitRegistration()">提交申請</button>
             </form>
         </div>
@@ -96,160 +59,114 @@ function renderRegistrationForm() {
 }
 
 async function submitRegistration() {
-    if (!currentLiffProfile) {
-        alert("無法取得 LINE 授權資料，請重新載入頁面。");
-        return;
-    }
+    if (!currentLiffProfile) { alert("無法取得 LINE 授權資料，請重新載入頁面。"); return; }
 
-    const realName = document.getElementById('input-name').value.trim();
-    const phone = document.getElementById('input-phone').value.trim();
-    const email = document.getElementById('input-email').value.trim();
-    const industry = document.getElementById('input-industry').value.trim();
-    const company = document.getElementById('input-company').value.trim();
-    const jobTitle = document.getElementById('input-jobtitle').value.trim();
-    const referrer = document.getElementById('input-referrer').value.trim();
+    const actData = {
+        realName: document.getElementById('input-name').value.trim(), phone: document.getElementById('input-phone').value.trim(),
+        email: document.getElementById('input-email').value.trim(), industry: document.getElementById('input-industry').value.trim(),
+        company: document.getElementById('input-company').value.trim(), jobTitle: document.getElementById('input-jobtitle').value.trim(),
+        referrer: document.getElementById('input-referrer').value.trim()
+    };
 
-    if (!realName || !phone || !email || !industry || !company || !jobTitle || !referrer) {
-        alert("請確認所有欄位皆已填寫完畢！");
-        return;
+    if (!actData.realName || !actData.phone || !actData.email || !actData.industry || !actData.company || !actData.jobTitle || !actData.referrer) {
+        alert("請確認所有欄位皆已填寫完畢！"); return;
     }
 
     const btn = document.getElementById('submit-btn');
-    btn.innerText = "資料送出中..."; 
-    btn.disabled = true;
-    btn.style.backgroundColor = "#ccc";
+    btn.innerText = "資料送出中..."; btn.disabled = true;
 
-    const userData = {
-        uid: currentLiffProfile.userId, 
-        lineName: currentLiffProfile.displayName,
-        realName: realName, 
-        phone: phone, 
-        email: email, 
-        industry: industry,
-        company: company, 
-        jobTitle: jobTitle, 
-        referrer: referrer
-    };
+    const userData = { ...actData, uid: currentLiffProfile.userId, lineName: currentLiffProfile.displayName };
 
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: 'registerUser', userData: userData }),
+            method: 'POST', body: JSON.stringify({ action: 'registerUser', userData: userData }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
         if (result.success) {
-            let newProfile = {
-                '真實姓名': userData.realName,
-                '手機號碼': "'" + userData.phone,
-                'Email': userData.email,
-                '產業': userData.industry,
-                '公司名稱': userData.company,
-                '職稱': userData.jobTitle,
-                '介紹人': userData.referrer,
-                '授權到期日': '無'
-            };
-            renderMemberDashboard({ 
-                isAdmin: result.data.isAdmin, 
-                status: '準會員', 
-                profile: newProfile 
-            });
-        } else { 
-            alert("註冊失敗：" + result.message); 
-            btn.innerText = "提交申請"; 
-            btn.disabled = false; 
-            btn.style.backgroundColor = "var(--text-inkblue)";
-        }
-    } catch (error) { 
-        alert("系統連線錯誤"); 
-        btn.innerText = "提交申請"; 
-        btn.disabled = false; 
-        btn.style.backgroundColor = "var(--text-inkblue)";
-    }
+            renderMemberDashboard({ isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無' } });
+        } else { alert("註冊失敗：" + result.message); btn.innerText = "提交申請"; btn.disabled = false; }
+    } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
 }
-
-/* ================= 會員中心與動態活動紀錄渲染 ================= */
 
 function renderMemberDashboard(userData) {
     const topNav = document.getElementById('top-nav');
     if (userData.isAdmin) {
         topNav.classList.remove('hidden');
         document.getElementById('btn-admin-area').onclick = () => showAdminLoginModal();
-    } else {
-        topNav.classList.add('hidden');
-    }
+    } else topNav.classList.add('hidden');
 
     let expiryWarningHtml = '';
     let formattedExpDate = '無';
     let rawExpDate = userData.profile['授權到期日'];
-
-    // 🌟 判斷是否為已核准之身分
     let isApprovedMember = APPROVED_ROLES.includes(userData.status);
 
     if (isApprovedMember && rawExpDate && rawExpDate !== '無') {
         let expDate = new Date(rawExpDate);
         formattedExpDate = expDate.toISOString().split('T')[0];
-        
-        let twoMonthsLater = new Date();
-        twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
+        let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
         
         if (expDate <= twoMonthsLater) {
             expiryWarningHtml = `
-                <div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align: left; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                <div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
                     <p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 續約提醒</p>
-                    <p style="color: #d9534f; font-size: 0.85rem; margin-top: 5px;">您的${userData.status}資格即將於 <strong>${formattedExpDate}</strong> 到期，請留意後續續約通知。</p>
+                    <p style="color: #d9534f; font-size: 0.85rem; margin-top: 5px;">您的${userData.status}資格即將於 <strong>${formattedExpDate}</strong> 到期。</p>
                 </div>
             `;
         }
     }
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
+
+    // 🌟 升級：頂級質感的專屬會員數位憑證
     let profileHtml = `
-        <div class="data-card" style="border-left-color: var(--text-inkblue); text-align: left; margin-bottom: 1.5rem;">
-            <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
-            <div style="display: grid; grid-template-columns: 1fr; gap: 8px; font-size: 0.9rem; color: #444;">
-                <p><strong>真實姓名：</strong> ${userData.profile['真實姓名'] || '-'}</p>
-                <p><strong>手機號碼：</strong> ${displayPhone}</p>
-                <p><strong>Email：</strong> ${userData.profile['Email'] || '-'}</p>
-                <p><strong>產業：</strong> ${userData.profile['產業'] || '-'}</p>
-                <p><strong>公司名稱：</strong> ${userData.profile['公司名稱'] || '-'}</p>
-                <p><strong>職稱：</strong> ${userData.profile['職稱'] || '-'}</p>
-                <p><strong>介紹人：</strong> ${userData.profile['介紹人'] || '-'}</p>
-                <p><strong>授權到期日：</strong> <span style="color: var(--accent-gold); font-weight:bold;">${formattedExpDate}</span></p>
+        <div style="background: linear-gradient(145deg, #ffffff, #fcfaf5); border: 1px solid var(--accent-gold); border-radius: 16px; padding: 2rem 1.5rem; box-shadow: 0 10px 30px rgba(191, 154, 90, 0.15); position: relative; overflow: hidden; margin-bottom: 2rem;">
+            <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: radial-gradient(circle, var(--accent-gold) 0%, transparent 70%); opacity: 0.1; border-radius: 50%;"></div>
+            
+            <h4 style="color: var(--text-inkblue); margin-bottom: 1.5rem; text-align: center; font-size: 1.1rem; letter-spacing: 2px; border-bottom: 1px solid rgba(191,154,90,0.3); padding-bottom: 10px;">✦ 專屬會員憑證 ✦</h4>
+            
+            <div style="display: grid; grid-template-columns: 1fr; gap: 15px; font-size: 0.95rem; color: #333; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                    <span style="font-size: 2rem; color: var(--accent-gold);">👑</span>
+                    <div>
+                        <p style="font-size: 0.8rem; color: var(--accent-gold); margin: 0; font-weight: bold;">會員身分</p>
+                        <p style="font-weight: bold; font-size: 1.3rem; margin: 0; color: var(--text-inkblue);">${userData.status}</p>
+                    </div>
+                </div>
+                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
+                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
+                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>Email：</strong> <span style="float: right;">${userData.profile['Email'] || '-'}</span></p>
+                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>公司/職稱：</strong> <span style="float: right;">${userData.profile['公司名稱']} / ${userData.profile['職稱']}</span></p>
+                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>產業/介紹人：</strong> <span style="float: right;">${userData.profile['產業']} / ${userData.profile['介紹人']}</span></p>
+                <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 5px;">
+                    <span style="color: #666; font-size: 0.85rem;">授權到期日</span><br>
+                    <span style="color: var(--accent-gold); font-weight:bold; font-size: 1.1rem;">${formattedExpDate}</span>
+                </div>
             </div>
         </div>
     `;
 
     let html = `
-        <div style="background-color: #fff; padding: 2rem 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: center; margin-bottom: 1.5rem;">
+        <div style="text-align: center; margin-bottom: 1.5rem;">
             <h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem;">您好，${userData.profile['真實姓名']}</h2>
-            <div style="display: inline-block; padding: 4px 12px; border-radius: 20px; background-color: var(--accent-gold); color: #fff; font-size: 0.9rem; font-weight: bold;">
-                目前的會員等級：${userData.status}
-            </div>
         </div>
         ${expiryWarningHtml}
         ${profileHtml}
     `;
 
-    // 🌟 修改：擁有任何一種正式等級，或是管理員，就解鎖功能
     if (isApprovedMember || userData.isAdmin) {
         html += `
-            <div id="member-loading" class="loading-text">正在載入最新活動與您的歷史紀錄...</div>
+            <div id="member-loading" class="loading-text">正在載入最新活動與歷史紀錄...</div>
             <div id="activity-section" style="display:none; text-align: left;"></div>
             <div id="history-section" style="display:none; margin-top: 2rem; text-align: left;"></div>
         `;
         document.getElementById('app-content').innerHTML = html;
         fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
     } else {
-        let lockMessage = userData.status === '已駁回' 
-            ? '您的申請目前未能通過審核。如有疑問，請聯繫管理員。' 
-            : '您的申請已經送出！目前狀態為「準會員」。<br>請等待管理員確認授權並開通正式會員資格後，即可解鎖「活動報名」與「歷史紀錄」等專屬功能。';
-            
         html += `
             <div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);">
                 <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">功能鎖定中</h4>
-                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">${lockMessage}</p>
+                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">狀態為「準會員」。<br>請等待管理員確認開通，即可解鎖專屬活動。</p>
             </div>
         `;
         document.getElementById('app-content').innerHTML = html;
@@ -272,8 +189,12 @@ async function fetchMemberActivitiesAndHistory(uid) {
             actHtml += `<p style="font-size:0.9rem; color:#666;">近期尚無活動發布。</p>`;
         } else {
             actResult.data.forEach(act => {
+                // 🌟 若有媒體，則顯示宣傳圖片
+                let mediaDisplay = act.media ? `<img src="${act.media}" style="width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">` : '';
+                
                 actHtml += `
                     <div class="data-card" style="border-left-color: var(--accent-gold);">
+                        ${mediaDisplay}
                         <h4 style="color: var(--text-inkblue); margin-bottom: 5px;">${act.name}</h4>
                         <p style="font-size: 0.85rem; color: #666;">📍 ${act.location} | 🕒 ${act.date}</p>
                         <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">💵 費用: ${act.fee} (截止: ${act.deadline})</p>
@@ -283,9 +204,8 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 `;
             });
         }
-        const actSec = document.getElementById('activity-section');
-        actSec.innerHTML = actHtml;
-        actSec.style.display = 'block';
+        document.getElementById('activity-section').innerHTML = actHtml;
+        document.getElementById('activity-section').style.display = 'block';
 
         let histHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">🕒 過往歷史紀錄</h4>`;
         if (histResult.data.length === 0) {
@@ -300,50 +220,38 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 `;
             });
         }
-        const histSec = document.getElementById('history-section');
-        histSec.innerHTML = histHtml;
-        histSec.style.display = 'block';
+        document.getElementById('history-section').innerHTML = histHtml;
+        document.getElementById('history-section').style.display = 'block';
 
-    } catch (error) {
-        alert('載入資料失敗，請稍後重試。');
-    }
+    } catch (error) { alert('載入資料失敗，請稍後重試。'); }
 }
 
 async function registerActivityBtn(activityId, activityName) {
     if (!confirm(`確定要報名「${activityName}」嗎？`)) return;
-    
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'registerActivity', uid: currentLiffProfile.userId, activityId: activityId }),
+            method: 'POST', body: JSON.stringify({ action: 'registerActivity', uid: currentLiffProfile.userId, activityId: activityId }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
         if (result.success) {
-            alert('報名成功！資料已更新。');
+            alert('報名成功！');
             document.getElementById('activity-section').style.display = 'none';
             document.getElementById('history-section').style.display = 'none';
             document.getElementById('member-loading').style.display = 'block';
             fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
-        } else {
-            alert('報名失敗：' + result.message);
-        }
-    } catch (error) {
-        alert('系統連線異常');
-    }
+        } else alert('報名失敗：' + result.message);
+    } catch (error) { alert('系統連線異常'); }
 }
 
 /* ================= 管理員專區邏輯 ================= */
 
 function showAdminLoginModal() {
     if (document.getElementById('admin-modal')) return;
-    
-    const modalHtml = `
+    document.body.insertAdjacentHTML('beforeend', `
         <div id="admin-modal" class="modal-overlay">
             <div class="modal-content">
                 <h3 style="color: var(--text-inkblue); margin-bottom: 10px;">管理員權限驗證</h3>
-                <p style="font-size: 0.9rem; color: #666;">請輸入專屬頁面密碼</p>
                 <input type="password" id="admin-pwd" class="modal-input" placeholder="••••••••">
                 <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px;">
                     <button class="btn-secondary" style="background-color: #999;" onclick="closeAdminModal()">取消</button>
@@ -351,120 +259,84 @@ function showAdminLoginModal() {
                 </div>
             </div>
         </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    `);
 }
-
-function closeAdminModal() { 
-    const m = document.getElementById('admin-modal'); 
-    if (m) m.remove(); 
-}
+function closeAdminModal() { const m = document.getElementById('admin-modal'); if (m) m.remove(); }
 
 async function verifyAdminPassword() {
     const pwd = document.getElementById('admin-pwd').value;
     const btn = document.getElementById('login-admin-btn');
     btn.innerText = "驗證中...";
-    
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: 'adminLogin', uid: currentLiffProfile.userId, password: pwd }),
+            method: 'POST', body: JSON.stringify({ action: 'adminLogin', uid: currentLiffProfile.userId, password: pwd }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
-        if (result.success) { 
-            closeAdminModal(); 
-            fetchAndRenderAdminData(); 
-        } else { 
-            alert('密碼錯誤或無權限！'); 
-            btn.innerText = "確認進入"; 
-        }
-    } catch (error) { 
-        alert('系統連線異常'); 
-        btn.innerText = "確認進入"; 
-    }
+        if (result.success) { closeAdminModal(); fetchAndRenderAdminData(); }
+        else { alert('密碼錯誤或無權限！'); btn.innerText = "確認進入"; }
+    } catch (error) { alert('系統連線異常'); btn.innerText = "確認進入"; }
 }
 
 async function fetchAndRenderAdminData() {
     const contentArea = document.getElementById('app-content');
     contentArea.innerHTML = `<div class="loading-text">資料讀取中，請稍候...</div>`;
-    
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: 'getAdminData' }),
+            method: 'POST', body: JSON.stringify({ action: 'getAdminData' }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
-        if (result.success) {
-            buildAdminDashboardUI(result.data);
-        } else {
-            contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取資料失敗。</p>`;
-        }
-    } catch (error) { 
-        contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; 
-    }
+        if (result.success) buildAdminDashboardUI(result.data);
+        else contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取資料失敗。</p>`;
+    } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; }
 }
 
 function buildAdminDashboardUI(data) {
-    let nextYear = new Date(); 
-    nextYear.setFullYear(nextYear.getFullYear() + 1);
+    let nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
     let defaultDate = nextYear.toISOString().split('T')[0];
     
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
 
     html += `<h4 style="color: #d9534f; margin-bottom: 10px;">⚠️ 即將到期會員提醒 (${data.expiring.length} 筆)</h4>`;
-    if (data.expiring.length === 0) {
-        html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
-    } else {
-        data.expiring.forEach(m => {
-            html += `<div class="data-card data-card-danger"><p><strong>${m.name}</strong> (${m.phone}) - [${m.status}] 到期日: ${m.expiryDate}</p></div>`;
-        });
-    }
+    if (data.expiring.length === 0) html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
+    else data.expiring.forEach(m => html += `<div class="data-card data-card-danger"><p><strong>${m.name}</strong> (${m.phone}) - [${m.status}] 到期日: ${m.expiryDate}</p></div>`);
 
-    // 🌟 更新：展開所有資訊，並加入會員等級下拉選單
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">⏳ 準會員審核區 (${data.pending.length} 筆)</h4>`;
-    if (data.pending.length === 0) {
-        html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
-    } else {
-        data.pending.forEach(m => {
-            html += `
-                <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
-                    <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email}</p>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司 / 職稱: ${m.company} / ${m.jobTitle}</p>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #ddd;">產業: ${m.industry} | 介紹人: ${m.referrer}</p>
-                    
-                    <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級：</label>
-                    <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;">
-                        <option value="一般會員">一般會員</option>
-                        <option value="她薈會員">她薈會員</option>
-                        <option value="創始會員">創始會員</option>
-                    </select>
-
-                    <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">設定授權到期日：</label>
-                    <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 15px;">
-                    
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 10px 5px;" onclick="rejectMemberBtn('${m.uid}')">駁回申請</button>
-                        <button class="btn-secondary" style="flex: 2; padding: 10px 5px;" onclick="approveMemberBtn('${m.uid}')">確認核准並開通</button>
-                    </div>
+    if (data.pending.length === 0) html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
+    else data.pending.forEach(m => {
+        html += `
+            <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
+                <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email}</p>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司 / 職稱: ${m.company} / ${m.jobTitle}</p>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #ddd;">產業: ${m.industry} | 介紹人: ${m.referrer}</p>
+                <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級：</label>
+                <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;">
+                    <option value="一般會員">一般會員</option><option value="她薈會員">她薈會員</option><option value="創始會員">創始會員</option>
+                </select>
+                <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">設定授權到期日：</label>
+                <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 15px;">
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 10px 5px;" onclick="rejectMemberBtn('${m.uid}')">駁回申請</button>
+                    <button class="btn-secondary" style="flex: 2; padding: 10px 5px;" onclick="approveMemberBtn('${m.uid}')">確認核准</button>
                 </div>
-            `;
-        });
-    }
+            </div>
+        `;
+    });
 
+    // 🌟 新增：檔案上傳區塊
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 活動及通告發布設定</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink);">
             <input type="text" id="act-name" class="admin-search-bar" placeholder="活動/通告名稱" required>
+            
+            <label style="font-size: 0.8rem; font-weight:bold;">上傳活動媒體 (照片/海報)</label>
+            <input type="file" id="act-media" class="admin-search-bar" accept="image/*,video/*" onchange="handleFileUpload(event)">
+            
             <select id="act-type" class="admin-search-bar">
-                <option value="實體課程">實體課程</option>
-                <option value="線上講座">線上講座</option>
-                <option value="內部通告">內部通告</option>
-                <option value="跨產業聯誼">跨產業聯誼</option>
+                <option value="實體課程">實體課程</option><option value="線上講座">線上講座</option>
+                <option value="內部通告">內部通告</option><option value="跨產業聯誼">跨產業聯誼</option>
             </select>
             <div style="display:flex; gap:10px;">
                 <div style="flex:1;"><label style="font-size:0.8rem;">活動日期</label><input type="date" id="act-date" class="admin-search-bar"></div>
@@ -480,18 +352,10 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
-    html += `
-        <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">👥 正式會員名單 (${data.active.length} 筆)</h4>
-        <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名或手機號碼..." onkeyup="filterMembers()">
-        <div id="member-list-container">
-    `;
-    data.active.forEach(m => {
-        html += `
-            <div class="data-card member-item">
-                <p><strong>${m.name}</strong> (${m.phone}) - [${m.status}] 到期日: ${m.expiryDate}</p>
-            </div>
-        `;
-    });
+    html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">👥 正式會員名單 (${data.active.length} 筆)</h4>
+             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋..." onkeyup="filterMembers()">
+             <div id="member-list-container">`;
+    data.active.forEach(m => html += `<div class="data-card member-item"><p><strong>${m.name}</strong> (${m.phone}) - [${m.status}]</p></div>`);
     html += `</div>`;
 
     document.getElementById('app-content').innerHTML = html;
@@ -499,64 +363,47 @@ function buildAdminDashboardUI(data) {
 
 function filterMembers() {
     const input = document.getElementById('member-search').value.toLowerCase();
-    const items = document.querySelectorAll('.member-item');
-    items.forEach(item => {
-        item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none";
-    });
+    document.querySelectorAll('.member-item').forEach(item => item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none");
 }
 
-// 🌟 更新：抓取前端選單的值，並傳送給後端
 async function approveMemberBtn(targetUid) {
     const dateInput = document.getElementById(`date-${targetUid}`).value;
     const levelInput = document.getElementById(`level-${targetUid}`).value;
-    
     if (!dateInput) return alert('請選擇到期日');
     if (!confirm(`確認將此人升級為「${levelInput}」嗎？`)) return;
-    
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ 
-                action: 'approveMember', 
-                targetUid: targetUid, 
-                expiryDate: dateInput,
-                memberLevel: levelInput
-            }),
+            method: 'POST', body: JSON.stringify({ action: 'approveMember', targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
-        if (result.success) { 
-            alert('已成功核准！'); 
-            document.getElementById(`pending-card-${targetUid}`).remove(); 
-        } else {
-            alert('核准失敗，請稍後重試。');
-        }
-    } catch (error) { 
-        alert('連線異常'); 
-    }
+        if (result.success) { alert('已成功核准！'); document.getElementById(`pending-card-${targetUid}`).remove(); }
+        else alert('核准失敗，請稍後重試。');
+    } catch (error) { alert('連線異常'); }
 }
 
 async function rejectMemberBtn(targetUid) {
-    if (!confirm('確定要駁回此會員的申請嗎？此動作將標記為已駁回。')) return;
-    
+    if (!confirm('確定要駁回此會員的申請嗎？')) return;
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: 'rejectMember', targetUid: targetUid }),
+            method: 'POST', body: JSON.stringify({ action: 'rejectMember', targetUid: targetUid }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
-        if (result.success) { 
-            alert('已成功駁回！'); 
-            document.getElementById(`pending-card-${targetUid}`).remove(); 
-        } else {
-            alert('駁回失敗，請稍後重試。');
-        }
-    } catch (error) { 
-        alert('連線異常'); 
-    }
+        if (result.success) { alert('已成功駁回！'); document.getElementById(`pending-card-${targetUid}`).remove(); }
+    } catch (error) { alert('連線異常'); }
+}
+
+// 🌟 處理前端檔案讀取並轉換為 Base64
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        activityMediaBuffer.base64 = e.target.result.split(',')[1];
+        activityMediaBuffer.mimeType = file.type;
+    };
+    reader.readAsDataURL(file);
 }
 
 async function submitActivity() {
@@ -564,38 +411,28 @@ async function submitActivity() {
     if (!actName) return alert('活動名稱為必填項目！');
 
     const btn = document.getElementById('submit-act-btn');
-    btn.innerText = "發布中..."; 
-    btn.disabled = true;
+    btn.innerText = "發布中 (若有圖片需稍候)..."; btn.disabled = true;
 
     const actData = {
-        name: actName,
-        type: document.getElementById('act-type').value,
-        date: document.getElementById('act-date').value,
-        deadline: document.getElementById('act-deadline').value,
-        location: document.getElementById('act-location').value.trim(),
-        fee: document.getElementById('act-fee').value.trim(),
-        capacity: document.getElementById('act-capacity').value.trim(),
-        description: document.getElementById('act-desc').value.trim()
+        name: actName, type: document.getElementById('act-type').value,
+        date: document.getElementById('act-date').value, deadline: document.getElementById('act-deadline').value,
+        location: document.getElementById('act-location').value.trim(), fee: document.getElementById('act-fee').value.trim(),
+        capacity: document.getElementById('act-capacity').value.trim(), description: document.getElementById('act-desc').value.trim(),
+        mediaBase64: activityMediaBuffer.base64, mediaMime: activityMediaBuffer.mimeType
     };
 
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', 
-            body: JSON.stringify({ action: 'createActivity', activityData: actData }),
+            method: 'POST', body: JSON.stringify({ action: 'createActivity', activityData: actData }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
         if (result.success) {
             alert('活動發布成功！');
-            ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc'].forEach(id => document.getElementById(id).value = '');
-        } else {
-            alert('發布失敗：' + result.message);
-        }
-    } catch (error) { 
-        alert('連線異常'); 
-    }
+            ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc','act-media'].forEach(id => document.getElementById(id).value = '');
+            activityMediaBuffer = { base64: null, mimeType: null };
+        } else alert('發布失敗：' + result.message);
+    } catch (error) { alert('連線異常'); }
     
-    btn.innerText = "發布活動"; 
-    btn.disabled = false;
+    btn.innerText = "發布活動"; btn.disabled = false;
 }
