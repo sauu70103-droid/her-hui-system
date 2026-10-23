@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 優化活動發布表單為上下排列，解決手機版破版問題)
+ * 說明：前端核心邏輯 (完整版 - 同步核發中邏輯)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -83,7 +83,8 @@ async function submitRegistration() {
         });
         const result = await response.json();
         if (result.success) {
-            renderMemberDashboard({ isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無' } });
+            // 🌟 更新：新註冊會員的編號強制顯示「核發中」
+            renderMemberDashboard({ isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無', '會員編號': '核發中' } });
         } else { alert("註冊失敗：" + result.message); btn.innerText = "提交申請"; btn.disabled = false; }
     } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
 }
@@ -99,6 +100,7 @@ function renderMemberDashboard(userData) {
     let formattedExpDate = '無';
     let rawExpDate = userData.profile['授權到期日'];
     let isApprovedMember = APPROVED_ROLES.includes(userData.status);
+    let memberIdDisplay = userData.profile['會員編號'] || '核發中';
 
     if (isApprovedMember && rawExpDate && rawExpDate !== '無') {
         let expDate = new Date(rawExpDate);
@@ -117,28 +119,50 @@ function renderMemberDashboard(userData) {
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
 
+    let cardStyle = `background: linear-gradient(145deg, #ffffff, #fcfaf5); border: 1px solid var(--accent-gold);`;
+    let titleColor = `var(--text-inkblue)`;
+    let textColor = `#333`;
+    let dividerStyle = `border-bottom: 1px dashed #eee;`;
+    let badgeBg = `rgba(191,154,90,0.1)`;
+
+    if (userData.status === '創始會員') {
+        cardStyle = `background: linear-gradient(135deg, #BF9A5A 0%, #D4AF37 50%, #BF9A5A 100%); border: none; box-shadow: 0 10px 25px rgba(191,154,90,0.4);`;
+        titleColor = `#fff`;
+        textColor = `#fff`;
+        dividerStyle = `border-bottom: 1px dashed rgba(255,255,255,0.4);`;
+        badgeBg = `rgba(255,255,255,0.2)`;
+    } else if (userData.status === '她薈會員') {
+        cardStyle = `background: linear-gradient(135deg, #EBD6CF 0%, #F5EAE6 50%, #EBD6CF 100%); border: 1px solid #dcb5a8;`;
+    } else if (userData.status === '一般會員') {
+        cardStyle = `background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 50%, #f5f5f5 100%); border: 1px solid #ccc;`;
+    }
+
     let profileHtml = `
-        <div style="background: linear-gradient(145deg, #ffffff, #fcfaf5); border: 1px solid var(--accent-gold); border-radius: 16px; padding: 2rem 1.5rem; box-shadow: 0 10px 30px rgba(191, 154, 90, 0.15); position: relative; overflow: hidden; margin-bottom: 2rem;">
+        <div style="${cardStyle} border-radius: 16px; padding: 2rem 1.5rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden; margin-bottom: 2rem;">
             <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: radial-gradient(circle, var(--accent-gold) 0%, transparent 70%); opacity: 0.1; border-radius: 50%;"></div>
             
-            <h4 style="color: var(--text-inkblue); margin-bottom: 1.5rem; text-align: center; font-size: 1.1rem; letter-spacing: 2px; border-bottom: 1px solid rgba(191,154,90,0.3); padding-bottom: 10px;">✦ 專屬會員憑證 ✦</h4>
+            <h4 style="color: ${titleColor}; margin-bottom: 1.5rem; text-align: center; font-size: 1.1rem; letter-spacing: 2px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;">✦ 專屬會員憑證 ✦</h4>
             
-            <div style="display: grid; grid-template-columns: 1fr; gap: 15px; font-size: 0.95rem; color: #333; text-align: left;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
-                    <span style="font-size: 2rem; color: var(--accent-gold);">👑</span>
+            <div style="text-align: center; margin-bottom: 15px;">
+                <p style="font-size: 0.8rem; color: ${textColor}; margin: 0; opacity: 0.8;">會員編號</p>
+                <p style="font-weight: bold; font-size: 1.4rem; margin: 0; color: ${titleColor}; letter-spacing: 1px;">${memberIdDisplay}</p>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr; gap: 15px; font-size: 0.95rem; color: ${textColor}; text-align: left;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; background: ${badgeBg}; padding: 10px; border-radius: 8px;">
+                    <span style="font-size: 1.8rem;">👑</span>
                     <div>
-                        <p style="font-size: 0.8rem; color: var(--accent-gold); margin: 0; font-weight: bold;">會員身分</p>
-                        <p style="font-weight: bold; font-size: 1.3rem; margin: 0; color: var(--text-inkblue);">${userData.status}</p>
+                        <p style="font-size: 0.8rem; margin: 0; opacity: 0.8;">會員身分</p>
+                        <p style="font-weight: bold; font-size: 1.2rem; margin: 0;">${userData.status}</p>
                     </div>
                 </div>
-                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
-                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
-                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>Email：</strong> <span style="float: right;">${userData.profile['Email'] || '-'}</span></p>
-                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>公司/職稱：</strong> <span style="float: right;">${userData.profile['公司名稱']} / ${userData.profile['職稱']}</span></p>
-                <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>產業/介紹人：</strong> <span style="float: right;">${userData.profile['產業']} / ${userData.profile['介紹人']}</span></p>
-                <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 5px;">
-                    <span style="color: #666; font-size: 0.85rem;">授權到期日</span><br>
-                    <span style="color: var(--accent-gold); font-weight:bold; font-size: 1.1rem;">${formattedExpDate}</span>
+                <p style="${dividerStyle} padding-bottom: 8px;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
+                <p style="${dividerStyle} padding-bottom: 8px;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
+                <p style="${dividerStyle} padding-bottom: 8px;"><strong>公司：</strong> <span style="float: right;">${userData.profile['公司名稱']}</span></p>
+                
+                <div style="background: ${badgeBg}; padding: 10px; border-radius: 8px; text-align: center; margin-top: 5px;">
+                    <span style="font-size: 0.85rem; opacity: 0.9;">授權到期日</span><br>
+                    <span style="font-weight:bold; font-size: 1.1rem; color: ${titleColor};">${formattedExpDate}</span>
                 </div>
             </div>
         </div>
@@ -164,7 +188,7 @@ function renderMemberDashboard(userData) {
         html += `
             <div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);">
                 <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">功能鎖定中</h4>
-                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">狀態為「準會員」。<br>請等待管理員確認開通，即可解鎖專屬活動。</p>
+                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">狀態為「準會員」。<br>請等待審核核發專屬編號後解鎖功能。</p>
             </div>
         `;
         document.getElementById('app-content').innerHTML = html;
@@ -294,6 +318,7 @@ async function fetchAndRenderAdminData() {
 function buildAdminDashboardUI(data) {
     let nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
     let defaultDate = nextYear.toISOString().split('T')[0];
+    const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
     
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
 
@@ -317,16 +342,13 @@ function buildAdminDashboardUI(data) {
                 <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">設定授權到期日：</label>
                 <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 15px;">
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 10px 5px;" onclick="rejectMemberBtn('${m.uid}')">駁回申請</button>
+                    <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 10px 5px;" onclick="rejectMemberBtn('${m.uid}')">駁回</button>
                     <button class="btn-secondary" style="flex: 2; padding: 10px 5px;" onclick="approveMemberBtn('${m.uid}')">確認核准</button>
                 </div>
             </div>
         `;
     });
 
-    // 🌟 修正排版：全部改為上下獨立顯示，解決手機版擠壓破版問題
-    const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
-    
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 活動及通告發布設定</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;">
@@ -375,6 +397,7 @@ function buildAdminDashboardUI(data) {
                     <span style="font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px; color: #555;">${m.phone}</span>
                 </div>
                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司: ${m.company || '-'}</p>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">編號: <strong style="color: var(--text-inkblue);">${m.memberId}</strong></p>
                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">目前到期日: <strong id="display-date-${m.uid}">${m.expiryDate}</strong></p>
                 
                 <div style="background: #fdfdfd; padding: 10px; border-radius: 6px; border: 1px dashed #ddd;">
@@ -404,14 +427,14 @@ async function approveMemberBtn(targetUid) {
     const dateInput = document.getElementById(`date-${targetUid}`).value;
     const levelInput = document.getElementById(`level-${targetUid}`).value;
     if (!dateInput) return alert('請選擇到期日');
-    if (!confirm(`確認將此人升級為「${levelInput}」嗎？`)) return;
+    if (!confirm(`確認將此人升級為「${levelInput}」嗎？系統將自動配發對應會員編號。`)) return;
     try {
         const response = await fetch(GAS_API_URL, {
             method: 'POST', body: JSON.stringify({ action: 'approveMember', targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        if (result.success) { alert('已成功核准！'); document.getElementById(`pending-card-${targetUid}`).remove(); }
+        if (result.success) { alert('已成功核准並配發會員編號！'); document.getElementById(`pending-card-${targetUid}`).remove(); }
         else alert('核准失敗，請稍後重試。');
     } catch (error) { alert('連線異常'); }
 }
