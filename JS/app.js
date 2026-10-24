@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (解決卡片文字偏移，分離直式與橫屏座標，適配字體大小)
+ * 說明：前端核心邏輯 (精準校正卡片文字高度、恢復完整會員資訊列表)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -8,39 +8,39 @@ const LIFF_ID = '2012102588-g88gt5pQ';
 let currentLiffProfile = null; 
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
-// 🌟 深度優化：分離直立(portrait)與橫屏(landscape)的獨立座標與字體大小設定
+// 調整 top 百分比將文字向上拉回對齊底線
 const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
         portrait: {
-            name: { top: '60.5%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '75%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '42%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '56%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '56.5%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '69%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '40%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '55%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '她薈會員': {
         src: 'card_annual.jpg',
         portrait: {
-            name: { top: '60.5%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '75%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '42%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '56%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '56.5%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '69%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '40%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '55%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '創始會員': {
         src: 'card_founder.jpg',
         portrait: {
-            name: { top: '62.5%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '76%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '44%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '58%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '61.5%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '74%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '42%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '56%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     }
 };
@@ -134,7 +134,6 @@ async function submitRegistration() {
     } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
 }
 
-// 🌟 橫屏放大顯示：採用 landscape 專用座標與字體
 window.showFullscreenCard = function(status, name, memberId) {
     let cfg = CARD_CONFIG[status];
     if(!cfg) return;
@@ -206,7 +205,6 @@ function renderMemberDashboard(userData) {
 
     let profileHtml = '';
 
-    // 🌟 直立小卡：採用 portrait 專用座標與字體
     if (CARD_CONFIG[userData.status]) {
         let cfg = CARD_CONFIG[userData.status];
         const baseStyle = "position: absolute; transform: translate(-50%, -50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 2px; white-space: nowrap;";
@@ -232,9 +230,16 @@ function renderMemberDashboard(userData) {
 
     profileHtml += `
         <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
+            <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
             <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>公司：</strong> <span style="float: right;">${userData.profile['公司名稱']}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員編號：</strong> <span style="float: right;">${memberIdDisplay}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>姓名：</strong> <span style="float: right;">${realNameDisplay}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>手機號碼：</strong> <span style="float: right;">${displayPhone}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>Email：</strong> <span style="float: right;">${userData.profile['Email'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>產業：</strong> <span style="float: right;">${userData.profile['產業'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>公司名稱：</strong> <span style="float: right;">${userData.profile['公司名稱'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>職稱：</strong> <span style="float: right;">${userData.profile['職稱'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>介紹人：</strong> <span style="float: right;">${userData.profile['介紹人'] || '-'}</span></p>
             
             <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 15px;">
                 <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br>
