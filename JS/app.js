@@ -35,12 +35,12 @@ const CARD_CONFIG = {
     '創始會員': {
         src: 'card_founder.jpg',
         portrait: {
-            name: { top: '20%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '35%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '18%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '30%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
             name: { top: '20%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '35%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            id:   { top: '28%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     }
 };
