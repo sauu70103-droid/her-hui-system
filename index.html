@@ -1,33 +1,185 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>她薈 HER HUI - 會員系統</title>
-    <link rel="stylesheet" href="style.css">
+    
+    <!-- 引入 Google Fonts (無襯線體供一般介面使用，襯線體供會員卡片使用) -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* 系統全域變數與配色 */
+        :root {
+            --accent-gold: #BF9A5A;     /* 尊爵金 */
+            --text-inkblue: #1B2744;    /* 墨藍色 */
+            --accent-pink: #EBD6CF;     /* 柔漾粉 */
+            --bg-color: #F8F5EF;        /* 背景白 */
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px 15px;
+            color: #333;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 隱藏輔助類別 */
+        .hidden { display: none !important; }
+
+        /* 頂部切換導覽列 */
+        #top-nav {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .nav-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+        
+        #btn-member-area {
+            background-color: var(--text-inkblue);
+            color: white;
+        }
+        
+        #btn-admin-area {
+            background-color: var(--accent-gold);
+            color: white;
+        }
+
+        /* 共用卡片樣式 */
+        .data-card {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05);
+            margin-bottom: 1.5rem;
+            border-left: 4px solid var(--text-inkblue);
+            box-sizing: border-box;
+        }
+        
+        .data-card-danger {
+            border-left-color: #d9534f;
+        }
+
+        /* 按鈕樣式 */
+        .btn-primary {
+            background-color: var(--text-inkblue);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        .btn-primary:active { opacity: 0.8; }
+        
+        .btn-secondary {
+            background-color: var(--accent-gold);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+        .btn-secondary:active { opacity: 0.8; }
+
+        /* 表單與搜尋框 */
+        .admin-search-bar {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            font-family: inherit;
+        }
+
+        /* 彈出視窗 (Modal) */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+        }
+        
+        .modal-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-size: 1.1rem;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        /* 載入中文字 */
+        .loading-text {
+            text-align: center;
+            color: #666;
+            font-size: 1rem;
+            padding: 3rem 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+    </style>
 </head>
 <body>
-    <!-- 頂部 Logo 與權限按鈕預留區 -->
-    <header class="header">
-        <div class="logo-container">
-            <!-- 稍後可將 src 替換為您上傳至 GitHub 的實際 Logo 圖片網址 -->
-            <img src="logo.jpg" alt="她薈 HER HUI" class="brand-logo">
-        </div>
-        
-        <!-- 管理員權限專屬區塊 (預設隱藏，驗證身分後由 JS 渲染顯示) -->
-        <nav id="top-nav" class="hidden">
-            <button id="btn-member-area" class="btn-primary">會員專區</button>
-            <button id="btn-admin-area" class="btn-secondary">管理員專區</button>
-        </nav>
-    </header>
 
-    <!-- 主要內容動態渲染區 -->
-    <main id="app-content" class="container">
+    <!-- 頂部導覽列 (權限通過後顯示) -->
+    <div id="top-nav" class="hidden">
+        <button id="btn-member-area" class="nav-btn">會員專區</button>
+        <button id="btn-admin-area" class="nav-btn">管理員專區</button>
+    </div>
+
+    <!-- 動態內容渲染區塊 -->
+    <div id="app-content">
         <div class="loading-text">系統載入中，請稍候...</div>
-    </main>
+    </div>
 
-    <!-- 載入 LINE LIFF SDK 與系統邏輯 -->
+    <!-- ================= 系統腳本載入區 ================= -->
+    
+    <!-- 1. 載入 LINE LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <!-- 2. 載入獨立的卡片渲染保險箱 (確保路徑與 GitHub 上資料夾名稱大小寫一致) -->
+    <script src="JS/cardManager.js"></script>
+    
+    <!-- 3. 載入主應用程式邏輯 -->
     <script src="JS/app.js"></script>
+
 </body>
 </html>
