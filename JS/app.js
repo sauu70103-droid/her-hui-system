@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (加入高級字體渲染、獨立座標設定與點擊放大橫屏功能)
+ * 說明：前端核心邏輯 (解決卡片文字偏移，分離直式與橫屏座標，適配字體大小)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -8,22 +8,40 @@ const LIFF_ID = '2012102588-g88gt5pQ';
 let currentLiffProfile = null; 
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
-// 🌟 卡片專屬設定區：可單獨微調三張圖片的文字座標與顏色
+// 🌟 深度優化：分離直立(portrait)與橫屏(landscape)的獨立座標與字體大小設定
 const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
-        namePos: { top: '53.5%', left: '55%', color: '#3A526A' },
-        idPos:   { top: '68%', left: '55%', color: '#3A526A' }
+        portrait: {
+            name: { top: '60.5%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '75%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+        },
+        landscape: {
+            name: { top: '56.5%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '69%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
+        }
     },
     '她薈會員': {
         src: 'card_annual.jpg',
-        namePos: { top: '53.5%', left: '55%', color: '#6A4B45' },
-        idPos:   { top: '68%', left: '55%', color: '#6A4B45' }
+        portrait: {
+            name: { top: '60.5%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '75%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+        },
+        landscape: {
+            name: { top: '56.5%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '69%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
+        }
     },
     '創始會員': {
         src: 'card_founder.jpg',
-        namePos: { top: '53.5%', left: '55%', color: '#664C28' },
-        idPos:   { top: '68%', left: '55%', color: '#664C28' }
+        portrait: {
+            name: { top: '62.5%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '76%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+        },
+        landscape: {
+            name: { top: '61.5%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '74%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
+        }
     }
 };
 
@@ -116,22 +134,21 @@ async function submitRegistration() {
     } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
 }
 
-// 🌟 新增：全螢幕橫屏卡片顯示邏輯
+// 🌟 橫屏放大顯示：採用 landscape 專用座標與字體
 window.showFullscreenCard = function(status, name, memberId) {
     let cfg = CARD_CONFIG[status];
     if(!cfg) return;
 
-    // 使用高質感的襯線字體與寬字距
-    const textStyle = `position: absolute; transform: translateY(-50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 4px; font-size: clamp(1.2rem, 4vh, 2rem); white-space: nowrap;`;
+    const baseStyle = "position: absolute; transform: translate(-50%, -50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 2px; white-space: nowrap;";
 
     let overlayHtml = `
         <div id="fullscreen-card-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column;" onclick="this.remove()">
             <div style="position: relative; width: 95vh; max-width: 1000px; transform: rotate(90deg); transform-origin: center;">
                 <img src="${cfg.src}" style="width: 100%; display: block; border-radius: 16px; box-shadow: 0 0 30px rgba(255,255,255,0.2);">
-                <div style="${textStyle} top: ${cfg.namePos.top}; left: ${cfg.namePos.left}; color: ${cfg.namePos.color};">
+                <div style="${baseStyle} top: ${cfg.landscape.name.top}; left: ${cfg.landscape.name.left}; color: ${cfg.landscape.name.color}; font-size: ${cfg.landscape.name.size};">
                     ${name}
                 </div>
-                <div style="${textStyle} top: ${cfg.idPos.top}; left: ${cfg.idPos.left}; color: ${cfg.idPos.color};">
+                <div style="${baseStyle} top: ${cfg.landscape.id.top}; left: ${cfg.landscape.id.left}; color: ${cfg.landscape.id.color}; font-size: ${cfg.landscape.id.size};">
                     ${memberId}
                 </div>
             </div>
@@ -189,20 +206,20 @@ function renderMemberDashboard(userData) {
 
     let profileHtml = '';
 
+    // 🌟 直立小卡：採用 portrait 專用座標與字體
     if (CARD_CONFIG[userData.status]) {
         let cfg = CARD_CONFIG[userData.status];
-        
-        const textStyleBase = "position: absolute; transform: translateY(-50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 2px; font-size: clamp(0.9rem, 4vw, 1.3rem); white-space: nowrap;";
+        const baseStyle = "position: absolute; transform: translate(-50%, -50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 2px; white-space: nowrap;";
 
         profileHtml += `
             <div onclick="window.showFullscreenCard('${userData.status}', '${realNameDisplay}', '${memberIdDisplay}')" style="position: relative; width: 100%; max-width: 600px; margin: 0 auto 1.5rem auto; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow: hidden; cursor: pointer;">
                 <img src="${cfg.src}" alt="${userData.status}憑證" style="width: 100%; height: auto; display: block;">
                 
-                <div style="${textStyleBase} top: ${cfg.namePos.top}; left: ${cfg.namePos.left}; color: ${cfg.namePos.color};">
+                <div style="${baseStyle} top: ${cfg.portrait.name.top}; left: ${cfg.portrait.name.left}; color: ${cfg.portrait.name.color}; font-size: ${cfg.portrait.name.size};">
                     ${realNameDisplay}
                 </div>
                 
-                <div style="${textStyleBase} top: ${cfg.idPos.top}; left: ${cfg.idPos.left}; color: ${cfg.idPos.color};">
+                <div style="${baseStyle} top: ${cfg.portrait.id.top}; left: ${cfg.portrait.id.left}; color: ${cfg.portrait.id.color}; font-size: ${cfg.portrait.id.size};">
                     ${memberIdDisplay}
                 </div>
                 
