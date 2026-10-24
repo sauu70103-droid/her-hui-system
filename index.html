@@ -30,6 +30,16 @@
         /* 隱藏輔助類別 */
         .hidden { display: none !important; }
 
+        /* 🌟 新增：頂部主 Logo 樣式 */
+        .main-logo {
+            display: block;
+            margin: 0 auto 25px auto; /* 置中並與下方保持距離 */
+            width: 120px; /* 圖片寬度，可依需求微調 */
+            height: auto;
+            border-radius: 20px; /* 圓角效果 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* 增加陰影立體感 */
+        }
+
         /* 頂部切換導覽列 */
         #top-nav {
             display: flex;
@@ -159,6 +169,10 @@
 </head>
 <body>
 
+    <!-- 🌟 補回原本在最上方的精美 Logo -->
+    <!-- ⚠️ 提醒：請確保 src="logo.png" 裡的檔名與你 GitHub 上的 Logo 檔名完全一致 (例如可能是 logo.jpg) -->
+    <img src="logo.png" alt="她薈 HER HUI Logo" class="main-logo">
+
     <!-- 頂部導覽列 (權限通過後顯示) -->
     <div id="top-nav" class="hidden">
         <button id="btn-member-area" class="nav-btn">會員專區</button>
@@ -175,7 +189,7 @@
     <!-- 1. 載入 LINE LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     
-    <!-- 2. 載入獨立的卡片渲染保險箱 (確保路徑與 GitHub 上資料夾名稱大小寫一致) -->
+    <!-- 2. 載入獨立的卡片渲染保險箱 -->
     <script src="JS/cardManager.js"></script>
     
     <!-- 3. 載入主應用程式邏輯 -->
