@@ -13,34 +13,34 @@ const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
         portrait: {
-            name: { top: '45%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '53%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '44.5%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '53.5%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '46%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '54%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '44.5%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '53.5%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '她薈會員': {
         src: 'card_annual.jpg',
         portrait: {
-            name: { top: '46%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '54%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '44.5%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '53.5%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '47%', left: '75%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '55%', left: '75%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '44.5%', left: '75%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '53.5%', left: '75%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '創始會員': {
         src: 'card_founder.jpg',
         portrait: {
             name: { top: '42%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '50%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            id:   { top: '51%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
             name: { top: '42%', left: '68%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '52%', left: '68%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            id:   { top: '51%', left: '68%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     }
 };
