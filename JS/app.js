@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 即時編號預覽與正式會員分區顯示)
+ * 說明：前端核心邏輯 (完整版 - 加入雙圖層絕對定位，動態將姓名與編號印在實體卡片圖上)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -8,9 +8,29 @@ const LIFF_ID = '2012102588-g88gt5pQ';
 let currentLiffProfile = null; 
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
+// 🌟 新增：各會員等級的專屬卡片設定檔 (可獨立微調座標與顏色)
+const CARD_CONFIG = {
+    '一般會員': {
+        src: 'card_general.jpg',
+        namePos: { top: '48%', left: '58%', color: '#1B2744' }, // 往下或往右，可微調百分比
+        idPos:   { top: '61%', left: '58%', color: '#1B2744' }
+    },
+    '她薈會員': {
+        src: 'card_annual.jpg',
+        namePos: { top: '48%', left: '58%', color: '#7a5043' },
+        idPos:   { top: '61%', left: '58%', color: '#7a5043' }
+    },
+    '創始會員': {
+        src: 'card_founder.jpg',
+        namePos: { top: '48%', left: '58%', color: '#634b22' },
+        idPos:   { top: '61%', left: '58%', color: '#634b22' }
+    }
+};
+
 let activityMediaBuffer = { base64: null, mimeType: null };
-// 🌟 全域變數：儲存後端傳來的預計編號
 let adminNextIds = {}; 
+let globalUserData = null; 
+let isAdminVerified = false; 
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
 
@@ -33,8 +53,12 @@ async function checkUserRoleAndStatus(uid) {
         });
         const result = await response.json();
         
-        if (result.success && result.data.isRegistered) renderMemberDashboard(result.data);
-        else document.getElementById('app-content').innerHTML = renderRegistrationForm();
+        if (result.success && result.data.isRegistered) {
+            globalUserData = result.data; 
+            renderMemberDashboard(result.data);
+        } else {
+            document.getElementById('app-content').innerHTML = renderRegistrationForm();
+        }
     } catch (error) { document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center;">伺服器連線發生錯誤。</p>`; }
 }
 
@@ -85,7 +109,9 @@ async function submitRegistration() {
         });
         const result = await response.json();
         if (result.success) {
-            renderMemberDashboard({ isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無', '會員編號': '核發中' } });
+            let newData = { isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無', '會員編號': '核發中' } };
+            globalUserData = newData;
+            renderMemberDashboard(newData);
         } else { alert("註冊失敗：" + result.message); btn.innerText = "提交申請"; btn.disabled = false; }
     } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
 }
@@ -94,14 +120,32 @@ function renderMemberDashboard(userData) {
     const topNav = document.getElementById('top-nav');
     if (userData.isAdmin) {
         topNav.classList.remove('hidden');
-        document.getElementById('btn-admin-area').onclick = () => showAdminLoginModal();
-    } else topNav.classList.add('hidden');
+        
+        const btnAdmin = document.getElementById('btn-admin-area');
+        if (btnAdmin) {
+            btnAdmin.onclick = () => {
+                if (isAdminVerified) fetchAndRenderAdminData(); 
+                else showAdminLoginModal(); 
+            };
+        }
+        
+        const btnMember = document.getElementById('btn-member-area');
+        if (btnMember) {
+            btnMember.onclick = () => {
+                if (globalUserData) renderMemberDashboard(globalUserData);
+            };
+        }
+    } else {
+        topNav.classList.add('hidden');
+    }
 
     let expiryWarningHtml = '';
     let formattedExpDate = '無';
     let rawExpDate = userData.profile['授權到期日'];
     let isApprovedMember = APPROVED_ROLES.includes(userData.status);
     let memberIdDisplay = userData.profile['會員編號'] || '核發中';
+    let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
+    let realNameDisplay = userData.profile['真實姓名'] || '-';
 
     if (isApprovedMember && rawExpDate && rawExpDate !== '無') {
         let expDate = new Date(rawExpDate);
@@ -118,33 +162,39 @@ function renderMemberDashboard(userData) {
         }
     }
 
-    let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
-
-    let cardImgSrc = '';
-    if (userData.status === '創始會員') cardImgSrc = 'card_founder.jpg';
-    else if (userData.status === '她薈會員') cardImgSrc = 'card_annual.jpg';
-    else if (userData.status === '一般會員') cardImgSrc = 'card_general.jpg';
-
     let profileHtml = '';
 
-    if (cardImgSrc) {
+    // 🌟 核心升級：雙圖層絕對定位，動態繪製姓名與編號
+    if (CARD_CONFIG[userData.status]) {
+        let cfg = CARD_CONFIG[userData.status];
+        
+        // CSS clamp 讓字體在手機跟電腦上都能完美對齊比例
+        const textStyleBase = "position: absolute; transform: translateY(-50%); font-weight: bold; font-family: 'PingFang TC', sans-serif; letter-spacing: 2px; font-size: clamp(0.9rem, 4vw, 1.3rem);";
+
         profileHtml += `
-            <div style="text-align: center; margin-bottom: 1.5rem; width: 100%;">
-                <img src="${cardImgSrc}" alt="${userData.status}憑證" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); display: block; margin: 0 auto;">
+            <div style="position: relative; width: 100%; max-width: 600px; margin: 0 auto 1.5rem auto; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow: hidden;">
+                <!-- 底層圖片 -->
+                <img src="${cfg.src}" alt="${userData.status}憑證" style="width: 100%; height: auto; display: block;">
+                
+                <!-- 上層文字：姓名 -->
+                <div style="${textStyleBase} top: ${cfg.namePos.top}; left: ${cfg.namePos.left}; color: ${cfg.namePos.color};">
+                    ${realNameDisplay}
+                </div>
+                
+                <!-- 上層文字：會員編號 -->
+                <div style="${textStyleBase} top: ${cfg.idPos.top}; left: ${cfg.idPos.left}; color: ${cfg.idPos.color}; letter-spacing: 1px;">
+                    ${memberIdDisplay}
+                </div>
             </div>
         `;
     }
 
+    // 輔助的詳細資料卡片
     profileHtml += `
         <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
-            <div style="text-align: center; margin-bottom: 15px;">
-                <p style="font-size: 0.8rem; color: #666; margin: 0;">會員編號</p>
-                <p style="font-weight: bold; font-size: 1.4rem; margin: 0; color: var(--text-inkblue); letter-spacing: 1px;">${memberIdDisplay}</p>
-            </div>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>公司：</strong> <span style="float: right;">${userData.profile['公司名稱']}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>公司：</strong> <span style="float: right;">${userData.profile['公司名稱']}</span></p>
             
             <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 15px;">
                 <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br>
@@ -155,7 +205,7 @@ function renderMemberDashboard(userData) {
 
     let html = `
         <div style="text-align: center; margin-bottom: 1.5rem;">
-            <h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem;">您好，${userData.profile['真實姓名']}</h2>
+            <h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem;">您好，${realNameDisplay}</h2>
         </div>
         ${expiryWarningHtml}
         ${profileHtml}
@@ -281,7 +331,11 @@ async function verifyAdminPassword() {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        if (result.success) { closeAdminModal(); fetchAndRenderAdminData(); }
+        if (result.success) { 
+            isAdminVerified = true; 
+            closeAdminModal(); 
+            fetchAndRenderAdminData(); 
+        }
         else { alert('密碼錯誤或無權限！'); btn.innerText = "確認進入"; }
     } catch (error) { alert('系統連線異常'); btn.innerText = "確認進入"; }
 }
@@ -300,7 +354,6 @@ async function fetchAndRenderAdminData() {
     } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; }
 }
 
-// 🌟 新增：監聽等級選單，即時切換預計發放的編號
 function updatePreviewId(uid) {
     const level = document.getElementById(`level-${uid}`).value;
     document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[level];
@@ -311,7 +364,6 @@ function buildAdminDashboardUI(data) {
     let defaultDate = nextYear.toISOString().split('T')[0];
     const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
     
-    // 將預計編號存入全域變數，供 JS 隨時替換使用
     adminNextIds = data.nextIds;
 
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
@@ -323,7 +375,6 @@ function buildAdminDashboardUI(data) {
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">⏳ 準會員審核區 (${data.pending.length} 筆)</h4>`;
     if (data.pending.length === 0) html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
     else data.pending.forEach(m => {
-        // 預設選單停留在「一般會員」，所以初始顯示預計編號為一般會員的號碼
         html += `
             <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
                 <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
@@ -387,7 +438,6 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
-    // 🌟 將正式會員名單拆分為三區
     let founderList = '', annualList = '', generalList = '';
 
     data.active.forEach(m => {
