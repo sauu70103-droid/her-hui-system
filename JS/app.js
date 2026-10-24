@@ -13,34 +13,34 @@ const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
         portrait: {
-            name: { top: '42%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '56%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '20%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '35%', left: '72%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '40%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '55%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '20%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '35%', left: '70%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '她薈會員': {
         src: 'card_annual.jpg',
         portrait: {
-            name: { top: '42%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '56%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '20%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '35%', left: '72%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '40%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '55%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '20%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '35%', left: '70%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '創始會員': {
         src: 'card_founder.jpg',
         portrait: {
-            name: { top: '44%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '58%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            name: { top: '20%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            id:   { top: '35%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '42%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '56%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '20%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '35%', left: '65%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     }
 };
