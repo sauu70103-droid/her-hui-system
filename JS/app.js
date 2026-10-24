@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 加入雙圖層絕對定位，動態將姓名與編號印在實體卡片圖上)
+ * 說明：前端核心邏輯 (加入高級字體渲染、獨立座標設定與點擊放大橫屏功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -8,22 +8,22 @@ const LIFF_ID = '2012102588-g88gt5pQ';
 let currentLiffProfile = null; 
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
-// 🌟 新增：各會員等級的專屬卡片設定檔 (可獨立微調座標與顏色)
+// 🌟 卡片專屬設定區：可單獨微調三張圖片的文字座標與顏色
 const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
-        namePos: { top: '48%', left: '58%', color: '#1B2744' }, // 往下或往右，可微調百分比
-        idPos:   { top: '61%', left: '58%', color: '#1B2744' }
+        namePos: { top: '53.5%', left: '55%', color: '#3A526A' },
+        idPos:   { top: '68%', left: '55%', color: '#3A526A' }
     },
     '她薈會員': {
         src: 'card_annual.jpg',
-        namePos: { top: '48%', left: '58%', color: '#7a5043' },
-        idPos:   { top: '61%', left: '58%', color: '#7a5043' }
+        namePos: { top: '53.5%', left: '55%', color: '#6A4B45' },
+        idPos:   { top: '68%', left: '55%', color: '#6A4B45' }
     },
     '創始會員': {
         src: 'card_founder.jpg',
-        namePos: { top: '48%', left: '58%', color: '#634b22' },
-        idPos:   { top: '61%', left: '58%', color: '#634b22' }
+        namePos: { top: '53.5%', left: '55%', color: '#664C28' },
+        idPos:   { top: '68%', left: '55%', color: '#664C28' }
     }
 };
 
@@ -116,6 +116,31 @@ async function submitRegistration() {
     } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
 }
 
+// 🌟 新增：全螢幕橫屏卡片顯示邏輯
+window.showFullscreenCard = function(status, name, memberId) {
+    let cfg = CARD_CONFIG[status];
+    if(!cfg) return;
+
+    // 使用高質感的襯線字體與寬字距
+    const textStyle = `position: absolute; transform: translateY(-50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 4px; font-size: clamp(1.2rem, 4vh, 2rem); white-space: nowrap;`;
+
+    let overlayHtml = `
+        <div id="fullscreen-card-overlay" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); z-index: 10000; display: flex; justify-content: center; align-items: center; flex-direction: column;" onclick="this.remove()">
+            <div style="position: relative; width: 95vh; max-width: 1000px; transform: rotate(90deg); transform-origin: center;">
+                <img src="${cfg.src}" style="width: 100%; display: block; border-radius: 16px; box-shadow: 0 0 30px rgba(255,255,255,0.2);">
+                <div style="${textStyle} top: ${cfg.namePos.top}; left: ${cfg.namePos.left}; color: ${cfg.namePos.color};">
+                    ${name}
+                </div>
+                <div style="${textStyle} top: ${cfg.idPos.top}; left: ${cfg.idPos.left}; color: ${cfg.idPos.color};">
+                    ${memberId}
+                </div>
+            </div>
+            <div style="position: absolute; bottom: 30px; color: rgba(255,255,255,0.6); font-size: 0.9rem; letter-spacing: 2px;">點擊任意處關閉返回</div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', overlayHtml);
+};
+
 function renderMemberDashboard(userData) {
     const topNav = document.getElementById('top-nav');
     if (userData.isAdmin) {
@@ -164,32 +189,30 @@ function renderMemberDashboard(userData) {
 
     let profileHtml = '';
 
-    // 🌟 核心升級：雙圖層絕對定位，動態繪製姓名與編號
     if (CARD_CONFIG[userData.status]) {
         let cfg = CARD_CONFIG[userData.status];
         
-        // CSS clamp 讓字體在手機跟電腦上都能完美對齊比例
-        const textStyleBase = "position: absolute; transform: translateY(-50%); font-weight: bold; font-family: 'PingFang TC', sans-serif; letter-spacing: 2px; font-size: clamp(0.9rem, 4vw, 1.3rem);";
+        const textStyleBase = "position: absolute; transform: translateY(-50%); font-weight: bold; font-family: 'Times New Roman', 'Noto Serif TC', serif; letter-spacing: 2px; font-size: clamp(0.9rem, 4vw, 1.3rem); white-space: nowrap;";
 
         profileHtml += `
-            <div style="position: relative; width: 100%; max-width: 600px; margin: 0 auto 1.5rem auto; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow: hidden;">
-                <!-- 底層圖片 -->
+            <div onclick="window.showFullscreenCard('${userData.status}', '${realNameDisplay}', '${memberIdDisplay}')" style="position: relative; width: 100%; max-width: 600px; margin: 0 auto 1.5rem auto; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); overflow: hidden; cursor: pointer;">
                 <img src="${cfg.src}" alt="${userData.status}憑證" style="width: 100%; height: auto; display: block;">
                 
-                <!-- 上層文字：姓名 -->
                 <div style="${textStyleBase} top: ${cfg.namePos.top}; left: ${cfg.namePos.left}; color: ${cfg.namePos.color};">
                     ${realNameDisplay}
                 </div>
                 
-                <!-- 上層文字：會員編號 -->
-                <div style="${textStyleBase} top: ${cfg.idPos.top}; left: ${cfg.idPos.left}; color: ${cfg.idPos.color}; letter-spacing: 1px;">
+                <div style="${textStyleBase} top: ${cfg.idPos.top}; left: ${cfg.idPos.left}; color: ${cfg.idPos.color};">
                     ${memberIdDisplay}
+                </div>
+                
+                <div style="position: absolute; bottom: 8px; right: 12px; background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 12px; font-size: 0.7rem; color: #333; font-weight: bold; pointer-events: none;">
+                    🔍 點擊放大
                 </div>
             </div>
         `;
     }
 
-    // 輔助的詳細資料卡片
     profileHtml += `
         <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
             <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
