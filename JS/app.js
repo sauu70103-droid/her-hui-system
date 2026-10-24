@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (完整保留所有會員中心與管理員功能)
+ * 說明：前端核心邏輯 (加入活動備用圖片網址支援)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -132,7 +132,6 @@ function renderMemberDashboard(userData) {
         }
     }
 
-    // 將卡片渲染完全委託給 cardManager.js
     let profileHtml = '';
     if (typeof window.CardManager !== 'undefined') {
         profileHtml += window.CardManager.getDashboardCardHtml(userData.status, realNameDisplay, memberIdDisplay);
@@ -354,14 +353,18 @@ function buildAdminDashboardUI(data) {
         `;
     });
 
+    // 🌟 活動表單：加入備用圖片網址欄位
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 活動及通告發布設定</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;">
             <label style="${labelStyle}">活動/通告名稱</label>
             <input type="text" id="act-name" class="admin-search-bar" placeholder="請輸入活動名稱" required>
             
-            <label style="${labelStyle}">上傳活動媒體 (照片/海報)</label>
+            <label style="${labelStyle}">上傳活動媒體 (檔案上傳)</label>
             <input type="file" id="act-media" class="admin-search-bar" accept="image/*,video/*" onchange="handleFileUpload(event)">
+            
+            <label style="${labelStyle}">或貼上外部圖片網址 (備用)</label>
+            <input type="text" id="act-media-url" class="admin-search-bar" placeholder="例如: https://imgur.com/xxx.jpg">
             
             <label style="${labelStyle}">活動類型</label>
             <select id="act-type" class="admin-search-bar">
@@ -523,11 +526,15 @@ async function submitActivity() {
     const btn = document.getElementById('submit-act-btn');
     btn.innerText = "發布中 (若有圖片需稍候)..."; btn.disabled = true;
 
+    // 🌟 獲取備用網址的值
+    const mediaUrlInput = document.getElementById('act-media-url').value.trim();
+
     const actData = {
         name: actName, type: document.getElementById('act-type').value,
         date: document.getElementById('act-date').value, deadline: document.getElementById('act-deadline').value,
         location: document.getElementById('act-location').value.trim(), fee: document.getElementById('act-fee').value.trim(),
         capacity: document.getElementById('act-capacity').value.trim(), description: document.getElementById('act-desc').value.trim(),
+        mediaUrl: mediaUrlInput,
         mediaBase64: activityMediaBuffer.base64, mediaMime: activityMediaBuffer.mimeType
     };
 
@@ -539,9 +546,11 @@ async function submitActivity() {
         const result = await response.json();
         if (result.success) {
             alert('活動發布成功！');
-            ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc','act-media'].forEach(id => document.getElementById(id).value = '');
+            ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc','act-media','act-media-url'].forEach(id => document.getElementById(id).value = '');
             activityMediaBuffer = { base64: null, mimeType: null };
-        } else alert('發布失敗：' + result.message);
+        } else {
+            alert('發布失敗：' + result.message);
+        }
     } catch (error) { alert('連線異常'); }
     
     btn.innerText = "發布活動"; btn.disabled = false;
