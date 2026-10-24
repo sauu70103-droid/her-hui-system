@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 同步核發中邏輯)
+ * 說明：前端核心邏輯 (完整版 - 動態渲染實體高質感會員卡片圖片與置中排版)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -83,7 +83,6 @@ async function submitRegistration() {
         });
         const result = await response.json();
         if (result.success) {
-            // 🌟 更新：新註冊會員的編號強制顯示「核發中」
             renderMemberDashboard({ isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無', '會員編號': '核發中' } });
         } else { alert("註冊失敗：" + result.message); btn.innerText = "提交申請"; btn.disabled = false; }
     } catch (error) { alert("系統連線錯誤"); btn.innerText = "提交申請"; btn.disabled = false; }
@@ -119,51 +118,42 @@ function renderMemberDashboard(userData) {
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
 
-    let cardStyle = `background: linear-gradient(145deg, #ffffff, #fcfaf5); border: 1px solid var(--accent-gold);`;
-    let titleColor = `var(--text-inkblue)`;
-    let textColor = `#333`;
-    let dividerStyle = `border-bottom: 1px dashed #eee;`;
-    let badgeBg = `rgba(191,154,90,0.1)`;
-
+    // 🌟 動態選擇對應的會員卡片圖片檔名
+    let cardImgSrc = '';
     if (userData.status === '創始會員') {
-        cardStyle = `background: linear-gradient(135deg, #BF9A5A 0%, #D4AF37 50%, #BF9A5A 100%); border: none; box-shadow: 0 10px 25px rgba(191,154,90,0.4);`;
-        titleColor = `#fff`;
-        textColor = `#fff`;
-        dividerStyle = `border-bottom: 1px dashed rgba(255,255,255,0.4);`;
-        badgeBg = `rgba(255,255,255,0.2)`;
+        cardImgSrc = 'card_founder.jpg';
     } else if (userData.status === '她薈會員') {
-        cardStyle = `background: linear-gradient(135deg, #EBD6CF 0%, #F5EAE6 50%, #EBD6CF 100%); border: 1px solid #dcb5a8;`;
+        cardImgSrc = 'card_annual.jpg';
     } else if (userData.status === '一般會員') {
-        cardStyle = `background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 50%, #f5f5f5 100%); border: 1px solid #ccc;`;
+        cardImgSrc = 'card_general.jpg';
     }
 
-    let profileHtml = `
-        <div style="${cardStyle} border-radius: 16px; padding: 2rem 1.5rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); position: relative; overflow: hidden; margin-bottom: 2rem;">
-            <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: radial-gradient(circle, var(--accent-gold) 0%, transparent 70%); opacity: 0.1; border-radius: 50%;"></div>
-            
-            <h4 style="color: ${titleColor}; margin-bottom: 1.5rem; text-align: center; font-size: 1.1rem; letter-spacing: 2px; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;">✦ 專屬會員憑證 ✦</h4>
-            
-            <div style="text-align: center; margin-bottom: 15px;">
-                <p style="font-size: 0.8rem; color: ${textColor}; margin: 0; opacity: 0.8;">會員編號</p>
-                <p style="font-weight: bold; font-size: 1.4rem; margin: 0; color: ${titleColor}; letter-spacing: 1px;">${memberIdDisplay}</p>
-            </div>
+    let profileHtml = '';
 
-            <div style="display: grid; grid-template-columns: 1fr; gap: 15px; font-size: 0.95rem; color: ${textColor}; text-align: left;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px; background: ${badgeBg}; padding: 10px; border-radius: 8px;">
-                    <span style="font-size: 1.8rem;">👑</span>
-                    <div>
-                        <p style="font-size: 0.8rem; margin: 0; opacity: 0.8;">會員身分</p>
-                        <p style="font-weight: bold; font-size: 1.2rem; margin: 0;">${userData.status}</p>
-                    </div>
-                </div>
-                <p style="${dividerStyle} padding-bottom: 8px;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
-                <p style="${dividerStyle} padding-bottom: 8px;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
-                <p style="${dividerStyle} padding-bottom: 8px;"><strong>公司：</strong> <span style="float: right;">${userData.profile['公司名稱']}</span></p>
-                
-                <div style="background: ${badgeBg}; padding: 10px; border-radius: 8px; text-align: center; margin-top: 5px;">
-                    <span style="font-size: 0.85rem; opacity: 0.9;">授權到期日</span><br>
-                    <span style="font-weight:bold; font-size: 1.1rem; color: ${titleColor};">${formattedExpDate}</span>
-                </div>
+    // 🌟 如果是正式會員，在最上方居中渲染對應的卡片圖片
+    if (cardImgSrc) {
+        profileHtml += `
+            <div style="text-align: center; margin-bottom: 1.5rem; width: 100%;">
+                <img src="${cardImgSrc}" alt="${userData.status}憑證" style="max-width: 100%; height: auto; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.15); display: block; margin: 0 auto;">
+            </div>
+        `;
+    }
+
+    // 🌟 獨立且清晰的白色資料卡片區塊，方便核對資料
+    profileHtml += `
+        <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
+            <div style="text-align: center; margin-bottom: 15px;">
+                <p style="font-size: 0.8rem; color: #666; margin: 0;">會員編號</p>
+                <p style="font-weight: bold; font-size: 1.4rem; margin: 0; color: var(--text-inkblue); letter-spacing: 1px;">${memberIdDisplay}</p>
+            </div>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>手機：</strong> <span style="float: right;">${displayPhone}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px;"><strong>公司：</strong> <span style="float: right;">${userData.profile['公司名稱']}</span></p>
+            
+            <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 15px;">
+                <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br>
+                <span style="font-weight:bold; font-size: 1.1rem; color: var(--accent-gold);">${formattedExpDate}</span>
             </div>
         </div>
     `;
