@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (精簡化，將卡片渲染委派給 cardManager.js)
+ * 說明：前端核心邏輯 (完整保留所有會員中心與管理員功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -132,7 +132,7 @@ function renderMemberDashboard(userData) {
         }
     }
 
-    // 🌟 將畫面渲染委派給 cardManager.js
+    // 將卡片渲染完全委託給 cardManager.js
     let profileHtml = '';
     if (typeof window.CardManager !== 'undefined') {
         profileHtml += window.CardManager.getDashboardCardHtml(userData.status, realNameDisplay, memberIdDisplay);
