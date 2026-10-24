@@ -13,11 +13,11 @@ const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
         portrait: {
-            name: { top: '45.2%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            name: { top: '45.3%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
             id:   { top: '53.5%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '45.2%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            name: { top: '45.3%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
             id:   { top: '53.5%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
