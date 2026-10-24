@@ -13,11 +13,11 @@ const CARD_CONFIG = {
     '一般會員': {
         src: 'card_general.jpg',
         portrait: {
-            name: { top: '45.1%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
+            name: { top: '45.2%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
             id:   { top: '53.5%', left: '68%', color: '#3A526A', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '45.1%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            name: { top: '45.2%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' },
             id:   { top: '53.5%', left: '68%', color: '#3A526A', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
@@ -25,11 +25,11 @@ const CARD_CONFIG = {
         src: 'card_annual.jpg',
         portrait: {
             name: { top: '44.5%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '53.3%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            id:   { top: '53.2%', left: '68%', color: '#6A4B45', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
             name: { top: '44.5%', left: '68%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '53.3%', left: '68%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            id:   { top: '53.2%', left: '68%', color: '#6A4B45', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     },
     '創始會員': {
