@@ -1,6 +1,6 @@
 /**
  * 檔案：app.js
- * 說明：前端核心邏輯 (完整版 - 動態渲染實體高質感會員卡片圖片與置中排版)
+ * 說明：前端核心邏輯 (完整版 - 即時編號預覽與正式會員分區顯示)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -9,6 +9,8 @@ let currentLiffProfile = null;
 const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 
 let activityMediaBuffer = { base64: null, mimeType: null };
+// 🌟 全域變數：儲存後端傳來的預計編號
+let adminNextIds = {}; 
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
 
@@ -118,19 +120,13 @@ function renderMemberDashboard(userData) {
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
 
-    // 🌟 動態選擇對應的會員卡片圖片檔名
     let cardImgSrc = '';
-    if (userData.status === '創始會員') {
-        cardImgSrc = 'card_founder.jpg';
-    } else if (userData.status === '她薈會員') {
-        cardImgSrc = 'card_annual.jpg';
-    } else if (userData.status === '一般會員') {
-        cardImgSrc = 'card_general.jpg';
-    }
+    if (userData.status === '創始會員') cardImgSrc = 'card_founder.jpg';
+    else if (userData.status === '她薈會員') cardImgSrc = 'card_annual.jpg';
+    else if (userData.status === '一般會員') cardImgSrc = 'card_general.jpg';
 
     let profileHtml = '';
 
-    // 🌟 如果是正式會員，在最上方居中渲染對應的卡片圖片
     if (cardImgSrc) {
         profileHtml += `
             <div style="text-align: center; margin-bottom: 1.5rem; width: 100%;">
@@ -139,7 +135,6 @@ function renderMemberDashboard(userData) {
         `;
     }
 
-    // 🌟 獨立且清晰的白色資料卡片區塊，方便核對資料
     profileHtml += `
         <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
             <div style="text-align: center; margin-bottom: 15px;">
@@ -305,11 +300,20 @@ async function fetchAndRenderAdminData() {
     } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; }
 }
 
+// 🌟 新增：監聽等級選單，即時切換預計發放的編號
+function updatePreviewId(uid) {
+    const level = document.getElementById(`level-${uid}`).value;
+    document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[level];
+}
+
 function buildAdminDashboardUI(data) {
     let nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1);
     let defaultDate = nextYear.toISOString().split('T')[0];
     const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
     
+    // 將預計編號存入全域變數，供 JS 隨時替換使用
+    adminNextIds = data.nextIds;
+
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
 
     html += `<h4 style="color: #d9534f; margin-bottom: 10px;">⚠️ 即將到期會員提醒 (${data.expiring.length} 筆)</h4>`;
@@ -319,16 +323,23 @@ function buildAdminDashboardUI(data) {
     html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">⏳ 準會員審核區 (${data.pending.length} 筆)</h4>`;
     if (data.pending.length === 0) html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
     else data.pending.forEach(m => {
+        // 預設選單停留在「一般會員」，所以初始顯示預計編號為一般會員的號碼
         html += `
             <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
                 <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email}</p>
                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司 / 職稱: ${m.company} / ${m.jobTitle}</p>
                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #ddd;">產業: ${m.industry} | 介紹人: ${m.referrer}</p>
-                <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級：</label>
-                <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;">
-                    <option value="一般會員">一般會員</option><option value="她薈會員">她薈會員</option><option value="創始會員">創始會員</option>
+                
+                <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">
+                    選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：
+                </label>
+                <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;" onchange="updatePreviewId('${m.uid}')">
+                    <option value="一般會員">一般會員</option>
+                    <option value="她薈會員">她薈會員</option>
+                    <option value="創始會員">創始會員</option>
                 </select>
+                
                 <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">設定授權到期日：</label>
                 <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 15px;">
                 <div style="display: flex; gap: 8px;">
@@ -376,14 +387,14 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
-    html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">👥 正式會員名單 (${data.active.length} 筆)</h4>
-             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()">
-             <div id="member-list-container">`;
+    // 🌟 將正式會員名單拆分為三區
+    let founderList = '', annualList = '', generalList = '';
+
     data.active.forEach(m => {
-        html += `
+        let cardHtml = `
             <div class="data-card member-item" id="active-card-${m.uid}" style="text-align: left;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-                    <p style="margin: 0; font-size: 1.05rem;"><strong>${m.name}</strong> <span style="font-size: 0.85rem; color: var(--accent-gold);">[${m.status}]</span></p>
+                    <p style="margin: 0; font-size: 1.05rem;"><strong>${m.name}</strong></p>
                     <span style="font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px; color: #555;">${m.phone}</span>
                 </div>
                 <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司: ${m.company || '-'}</p>
@@ -400,8 +411,24 @@ function buildAdminDashboardUI(data) {
                 </div>
             </div>
         `;
+        
+        if (m.status === '創始會員') founderList += cardHtml;
+        else if (m.status === '她薈會員') annualList += cardHtml;
+        else generalList += cardHtml;
     });
-    html += `</div>`;
+
+    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">👥 正式會員名單總覽</h4>
+             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()">
+             
+             <h5 style="color: var(--accent-gold); margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">👑 創始會員</h5>
+             <div id="member-list-founder">${founderList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
+             
+             <h5 style="color: var(--accent-gold); margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">🌸 她薈會員</h5>
+             <div id="member-list-annual">${annualList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
+             
+             <h5 style="color: var(--accent-gold); margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">💎 一般會員</h5>
+             <div id="member-list-general">${generalList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
+             `;
 
     document.getElementById('app-content').innerHTML = html;
 }
