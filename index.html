@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>她薈 HER HUI - 會員系統</title>
     
-    <!-- 引入 Google Fonts (無襯線體供一般介面使用，襯線體供會員卡片使用) -->
+    <!-- 引入 Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
     
     <style>
         /* 系統全域變數與配色 */
         :root {
-            --accent-gold: #BF9A5A;     /* 尊爵金 */
-            --text-inkblue: #1B2744;    /* 墨藍色 */
-            --accent-pink: #EBD6CF;     /* 柔漾粉 */
-            --bg-color: #F8F5EF;        /* 背景白 */
+            --accent-gold: #BF9A5A;     
+            --text-inkblue: #1B2744;    
+            --accent-pink: #EBD6CF;     
+            --bg-color: #F8F5EF;        
         }
         
         body {
@@ -27,17 +27,17 @@
             -webkit-font-smoothing: antialiased;
         }
 
-        /* 隱藏輔助類別 */
         .hidden { display: none !important; }
 
-        /* 🌟 新增：頂部主 Logo 樣式 */
+        /* 🌟 頂部主 Logo 完美排版樣式 */
         .main-logo {
             display: block;
-            margin: 0 auto 25px auto; /* 置中並與下方保持距離 */
-            width: 120px; /* 圖片寬度，可依需求微調 */
-            height: auto;
-            border-radius: 20px; /* 圓角效果 */
-            box-shadow: 0 4px 15px rgba(0,0,0,0.15); /* 增加陰影立體感 */
+            margin: 0 auto 25px auto; 
+            width: 130px; 
+            height: 130px; 
+            object-fit: cover; 
+            border-radius: 24px; 
+            box-shadow: 0 6px 20px rgba(191, 154, 90, 0.25); 
         }
 
         /* 頂部切換導覽列 */
@@ -169,9 +169,8 @@
 </head>
 <body>
 
-    <!-- 🌟 補回原本在最上方的精美 Logo -->
-    <!-- ⚠️ 提醒：請確保 src="logo.png" 裡的檔名與你 GitHub 上的 Logo 檔名完全一致 (例如可能是 logo.jpg) -->
-    <img src="logo.png" alt="她薈 HER HUI Logo" class="main-logo">
+    <!-- 🌟 精確綁定 logo.jpg，移除所有會干擾的腳本 -->
+    <img src="logo.jpg" alt="她薈 HER HUI Logo" class="main-logo">
 
     <!-- 頂部導覽列 (權限通過後顯示) -->
     <div id="top-nav" class="hidden">
@@ -185,14 +184,8 @@
     </div>
 
     <!-- ================= 系統腳本載入區 ================= -->
-    
-    <!-- 1. 載入 LINE LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    
-    <!-- 2. 載入獨立的卡片渲染保險箱 -->
     <script src="JS/cardManager.js"></script>
-    
-    <!-- 3. 載入主應用程式邏輯 -->
     <script src="JS/app.js"></script>
 
 </body>
