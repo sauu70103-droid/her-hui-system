@@ -36,11 +36,11 @@ const CARD_CONFIG = {
         src: 'card_founder.jpg',
         portrait: {
             name: { top: '42%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' },
-            id:   { top: '50%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
+            id:   { top: '52%', left: '68%', color: '#664C28', size: 'clamp(1rem, 3.5vw, 1.2rem)' }
         },
         landscape: {
-            name: { top: '42%', left: '75%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
-            id:   { top: '48%', left: '75%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
+            name: { top: '42%', left: '68%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' },
+            id:   { top: '52%', left: '68%', color: '#664C28', size: 'clamp(1.5rem, 5vh, 2rem)' }
         }
     }
 };
