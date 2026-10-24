@@ -97,87 +97,97 @@
             width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 15px; box-sizing: border-box; font-size: 1.1rem; text-align: center; letter-spacing: 2px;
         }
 
-        /* 🌟 品牌載入畫面專屬樣式 */
+        /* 🌟 品牌載入畫面專屬樣式 (已優化為單張卡片顯示) */
         .splash-container {
             text-align: center; animation: fadeIn 1s ease-in; margin-bottom: 30px;
         }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         
         .brand-intro {
-            background: rgba(255, 255, 255, 0.7); padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; text-align: left;
+            background: rgba(255, 255, 255, 0.7); padding: 25px 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; text-align: left;
         }
-        .brand-intro p { font-size: 0.9rem; color: #555; line-height: 1.8; margin-bottom: 10px; }
         
-        /* 創辦人橫向輪播區塊 */
-        .founder-carousel {
-            display: flex; overflow-x: auto; gap: 15px; padding: 10px 5px 20px 5px; scroll-behavior: smooth;
-        }
         .founder-card {
-            min-width: 200px; background: white; border-radius: 12px; padding: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border-left: 4px solid var(--accent-gold); text-align: left; flex-shrink: 0;
+            background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-left: 6px solid var(--accent-gold); text-align: left; margin-bottom: 25px;
         }
-        .founder-title { color: var(--accent-gold); font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; }
-        .founder-name { color: var(--text-inkblue); font-size: 1.1rem; font-weight: bold; margin-bottom: 8px; }
-        .founder-desc { color: #666; font-size: 0.8rem; line-height: 1.5; white-space: normal; }
+        .founder-title { color: var(--accent-gold); font-size: 0.9rem; font-weight: bold; margin-bottom: 6px; letter-spacing: 1px; }
+        .founder-name { color: var(--text-inkblue); font-size: 1.25rem; font-weight: bold; margin-bottom: 10px; }
+        .founder-desc { color: #555; font-size: 0.9rem; line-height: 1.6; }
 
         .loading-badge {
-            display: inline-block; background: var(--text-inkblue); color: white; padding: 8px 20px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; letter-spacing: 1px; margin-top: 10px; box-shadow: 0 4px 10px rgba(27, 39, 68, 0.3); animation: pulse 2s infinite;
+            display: inline-block; background: var(--text-inkblue); color: white; padding: 10px 25px; border-radius: 25px; font-size: 0.9rem; font-weight: bold; letter-spacing: 1px; margin-top: 5px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.3); animation: pulse 2s infinite;
         }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
+    <!-- 頂部主 Logo -->
     <img src="logo.jpg" alt="她薈 HER HUI Logo" class="main-logo" onerror="this.style.display='none'">
 
+    <!-- 頂部導覽列 (權限通過後由 app.js 顯示) -->
     <div id="top-nav" class="hidden">
         <button id="btn-member-area" class="nav-btn">會員專區</button>
         <button id="btn-admin-area" class="nav-btn">管理員專區</button>
     </div>
 
-    <!-- 🌟 動態內容渲染區塊：加入高質感品牌理念與創辦人介紹 -->
+    <!-- 🌟 動態內容渲染區塊：載入畫面 -->
     <div id="app-content">
         <div class="splash-container">
+            <!-- 隨機理念區塊 -->
             <div class="brand-intro">
-                <h3 style="color: var(--text-inkblue); margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px;">她薈 HER HUI<br><span style="font-size: 0.85rem; color: var(--accent-gold);">女性生態圈</span></h3>
-                <p>「薈」是匯聚，也是繁盛。<br>我們相信，女性可甜、可柔、可有個性，也可以很堅定。在這裡，成長不只是事業。</p>
-                <p>結合美學、教育、品牌、公關與身心成長，我們打造一個讓女性被看見、被支持、彼此成就的地方。</p>
-                <p style="font-weight: bold; color: var(--accent-gold); text-align: center; margin-top: 15px;">同頻共振，資源串連<br>讓每一位女性找到專屬舞台，一起綻放。</p>
+                <h3 style="color: var(--text-inkblue); margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; font-family: 'Noto Serif TC', serif; letter-spacing: 1px;">她薈 HER HUI<br><span style="font-size: 0.85rem; color: var(--accent-gold); font-family: 'Noto Sans TC', sans-serif;">女性生態圈</span></h3>
+                <p id="dynamic-intro-text" style="font-size: 0.95rem; color: #444; line-height: 1.8; margin: 0; font-weight: 500;">
+                    <!-- JavaScript 將在此處注入隨機理念 -->
+                </p>
             </div>
 
-            <h4 style="text-align: left; color: var(--text-inkblue); margin-bottom: 10px; font-size: 0.95rem;">✦ 五神獸創辦人 ✦</h4>
-            <div class="founder-carousel">
-                <div class="founder-card">
-                    <div class="founder-title">玄武</div>
-                    <div class="founder-name">李綺綺 (家蓁)</div>
-                    <div class="founder-desc">CIAEDA 中華國際美學教育發展協會理事長，以深厚美學底蘊奠定她薈專業與品質。</div>
-                </div>
-                <div class="founder-card">
-                    <div class="founder-title">青龍</div>
-                    <div class="founder-name">Elly</div>
-                    <div class="founder-desc">MINPIN 美學苑主理人，將美學化為日常，帶來細膩的質感與溫度。</div>
-                </div>
-                <div class="founder-card">
-                    <div class="founder-title">朱雀</div>
-                    <div class="founder-name">黃小鈴 (Eling)</div>
-                    <div class="founder-desc">7E 商學院公關長，擅長人脈連結、品牌孵化與資源媒合，讓能量找到對的位置。</div>
-                </div>
-                <div class="founder-card">
-                    <div class="founder-title">白虎</div>
-                    <div class="founder-name">蘇琮瑜</div>
-                    <div class="founder-desc">展翅 SOAR 創辦人，以引領的力量，帶動女性勇敢展翅。</div>
-                </div>
-                <div class="founder-card">
-                    <div class="founder-title">白虎</div>
-                    <div class="founder-name">佳佩</div>
-                    <div class="founder-desc">她醒了 SHE AWAKENS 創辦人，以陪伴的溫度，讓每一位女性在這裡醒來、扎根。</div>
-                </div>
+            <h4 style="text-align: left; color: var(--text-inkblue); margin-bottom: 12px; font-size: 0.95rem; letter-spacing: 1px;">✦ 創辦人巡禮 ✦</h4>
+            
+            <!-- 隨機創辦人專屬卡片 -->
+            <div class="founder-card">
+                <div id="dynamic-founder-title" class="founder-title"></div>
+                <div id="dynamic-founder-name" class="founder-name"></div>
+                <div id="dynamic-founder-desc" class="founder-desc"></div>
             </div>
 
             <div class="loading-badge">系統安全連線中...</div>
         </div>
     </div>
 
-    <!-- ================= 系統腳本載入區 ================= -->
+    <!-- ================= 🌟 隨機顯示邏輯 (輕量化腳本) ================= -->
+    <script>
+        // 1. 五段理念資料庫
+        const introData = [
+            "「她薈 HER HUI」，是由五位女性創辦人、五個品牌共同發起的女性生態圈。",
+            "「薈」是匯聚，也是繁盛。<br>我們相信，女性可甜、可柔、可有個性，也可以很堅定。在這裡，成長不只是事業。",
+            "從認識自己開始，走進生活，梳理關係與角色，找回夢想，最後成為有能力創造的人。",
+            "結合美學、教育、品牌、公關與身心成長，我們透過雙週線上交流與實體聚會，打造一個讓女性被看見、被支持、彼此成就的地方。",
+            "同頻共振，資源串連。<br>讓每一位女性都找到屬於自己的舞台，一起綻放。"
+        ];
+
+        // 2. 五位創辦人資料庫
+        const founderData = [
+            { title: "玄武", name: "李綺綺 (家蓁)", desc: "CIAEDA 中華國際美學教育發展協會理事長，以深厚的美學教育底蘊，為她薈奠定專業與品質。" },
+            { title: "青龍", name: "Elly", desc: "MINPIN 美學苑主理人，將美學化為日常，帶來細膩的質感與溫度。" },
+            { title: "朱雀", name: "黃小鈴 (Eling)", desc: "7E 商學院公關長，居於核心，擅長人脈連結、品牌孵化、策略規劃與資源媒合，讓每一份能量都找到對的位置。" },
+            { title: "白虎", name: "蘇琮瑜", desc: "展翅 SOAR 創辦人，以引領的力量，帶動女性勇敢展翅。" },
+            { title: "白虎", name: "佳佩", desc: "她醒了 SHE AWAKENS 創辦人，以陪伴的溫度，讓每一位女性在這裡醒來、扎根。" }
+        ];
+
+        // 3. 執行隨機抽取與畫面注入
+        document.addEventListener('DOMContentLoaded', () => {
+            const randomIntroIndex = Math.floor(Math.random() * introData.length);
+            const randomFounderIndex = Math.floor(Math.random() * founderData.length);
+            
+            document.getElementById('dynamic-intro-text').innerHTML = introData[randomIntroIndex];
+            document.getElementById('dynamic-founder-title').innerText = founderData[randomFounderIndex].title;
+            document.getElementById('dynamic-founder-name').innerText = founderData[randomFounderIndex].name;
+            document.getElementById('dynamic-founder-desc').innerText = founderData[randomFounderIndex].desc;
+        });
+    </script>
+
+    <!-- ================= 系統主程式載入區 ================= -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="JS/cardManager.js"></script>
     <script src="JS/app.js"></script>
