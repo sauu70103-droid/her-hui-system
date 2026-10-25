@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/admin.js
- * 說明：管理員後台業務邏輯 (審核、活動管理、報名管理與發送通知)
+ * 說明：管理員後台業務邏輯 (修復按鈕綁定、審核、活動管理、報名與寄信)
  */
 
 function showAdminLoginModal() {
@@ -20,42 +20,69 @@ function showAdminLoginModal() {
 }
 
 async function verifyAdminPassword() {
-    const btn = document.getElementById('login-admin-btn'); btn.innerText = "驗證中...";
+    const btn = document.getElementById('login-admin-btn'); 
+    if(btn) btn.innerText = "驗證中...";
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'adminLogin', uid: currentLiffProfile.userId, password: document.getElementById('admin-pwd').value }) });
-        const result = await response.json();
-        if (result.success) { isAdminVerified = true; document.getElementById('admin-modal').remove(); fetchAndRenderAdminData(); } 
-        else { alert('登入失敗：\n' + (result.message || '密碼或權限錯誤')); btn.innerText = "確認進入"; }
-    } catch (error) { alert('系統連線異常'); btn.innerText = "確認進入"; }
+        let pwdInput = document.getElementById('admin-pwd');
+        const result = await callApi({ action: 'adminLogin', uid: currentLiffProfile.userId, password: pwdInput ? pwdInput.value : '' });
+        
+        if (result.success) { 
+            isAdminVerified = true; 
+            let modal = document.getElementById('admin-modal');
+            if(modal) modal.remove(); 
+            fetchAndRenderAdminData(); 
+        } else { 
+            alert('登入失敗：\n' + (result.message || '密碼或權限錯誤')); 
+            if(btn) btn.innerText = "確認進入"; 
+        }
+    } catch (error) { 
+        alert('系統連線異常'); 
+        if(btn) btn.innerText = "確認進入"; 
+    }
 }
 
 async function fetchAndRenderAdminData() {
-    const contentArea = document.getElementById('app-content'); contentArea.innerHTML = `<div class="loading-text">資料讀取中...</div>`;
+    const contentArea = document.getElementById('app-content'); 
+    if(!contentArea) return;
+    contentArea.innerHTML = `<div class="loading-text">資料讀取中...</div>`;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getAdminData' }) });
-        const result = await response.json();
-        if (result.success) { adminActivitiesData = result.data.activities || []; buildAdminDashboardUI(result.data); } 
-        else contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取失敗：<br>${result.message || '未知錯誤'}</p>`;
-    } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; }
+        const result = await callApi({ action: 'getAdminData' });
+        if (result.success) { 
+            adminActivitiesData = result.data.activities || []; 
+            buildAdminDashboardUI(result.data); 
+        } else {
+            contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取失敗：<br>${result.message || '未知錯誤'}</p>`;
+        }
+    } catch (error) { 
+        contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; 
+    }
 }
 
 function updatePreviewId(uid) { 
     let selectEl = document.getElementById(`level-${uid}`);
-    if (selectEl && adminNextIds[selectEl.value]) {
-        document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[selectEl.value]; 
+    let previewEl = document.getElementById(`preview-id-${uid}`);
+    if (selectEl && previewEl && adminNextIds[selectEl.value]) {
+        previewEl.innerText = adminNextIds[selectEl.value]; 
     }
 }
 
 window.switchAdminTab = function(tabName) {
-    document.getElementById('admin-member-sec').style.display = (tabName === 'members') ? 'block' : 'none';
-    document.getElementById('admin-act-sec').style.display = (tabName === 'activities') ? 'block' : 'none';
-    document.getElementById('tab-btn-members').style.opacity = (tabName === 'members') ? '1' : '0.5';
-    document.getElementById('tab-btn-activities').style.opacity = (tabName === 'activities') ? '1' : '0.5';
+    let memberSec = document.getElementById('admin-member-sec');
+    let actSec = document.getElementById('admin-act-sec');
+    let btnMembers = document.getElementById('tab-btn-members');
+    let btnActs = document.getElementById('tab-btn-activities');
+
+    if(memberSec) memberSec.style.display = (tabName === 'members') ? 'block' : 'none';
+    if(actSec) actSec.style.display = (tabName === 'activities') ? 'block' : 'none';
+    if(btnMembers) btnMembers.style.opacity = (tabName === 'members') ? '1' : '0.5';
+    if(btnActs) btnActs.style.opacity = (tabName === 'activities') ? '1' : '0.5';
 };
 
 function buildAdminDashboardUI(data) {
     let nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1); let defaultDate = getStandardDate(nextYear);
-    adminNextIds = data.nextIds; editingActivityId = null; currentImageAssets = []; 
+    adminNextIds = data.nextIds || {}; 
+    editingActivityId = null; 
+    currentImageAssets = []; 
 
     let html = `
         <h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>
@@ -140,7 +167,7 @@ function buildAdminDashboardUI(data) {
                     <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 0.95rem; color: #444; border: 1px dashed #BF9A5A;">
                         <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${getChineseDate(m.birthday)}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
                     </div>
-                    <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：</label>
+                    <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員'] || 'P00001'}</span>)：</label>
                     <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')">
                         <option value="一般會員">一般會員</option><option value="她薈會員">她薈會員</option><option value="創始會員">創始會員</option>
                     </select>
@@ -230,7 +257,6 @@ function buildAdminDashboardUI(data) {
     if (adminActivitiesData.length > 0) {
         adminActivitiesData.forEach(act => {
             let actNameStr = String(act.name || '').trim();
-            // 🌟 嚴格剔除已刪除的活動
             if (actNameStr === '已刪除' || actNameStr.includes('已刪除')) return;
             
             displayedAdminActs++;
@@ -256,7 +282,10 @@ function buildAdminDashboardUI(data) {
     }
     
     html += `</div>`;
-    document.getElementById('app-content').innerHTML = html;
+    
+    // 🌟 確保渲染到畫面上，並移除載入提示
+    let contentArea = document.getElementById('app-content');
+    if(contentArea) contentArea.innerHTML = html;
 }
 
 window.changeMemberLevelBtn = async function(targetUid) {
@@ -265,20 +294,18 @@ window.changeMemberLevelBtn = async function(targetUid) {
     if (!dateInput) return alert('請選擇到期日');
     if (!confirm(`確認將會員等級變更為「${levelInput}」嗎？\n(系統將自動停用舊編號，並核發全新的一組會員編號！)`)) return;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput });
         if (result.success) { alert('變更成功！新編號已核發。'); fetchAndRenderAdminData(); }
     } catch (error) { alert('系統連線異常'); }
 }
 
 // ==========================================
-// 🌟 管理員：名單檢視與群發信件功能
+// 🌟 管理員：報名名單與寄信功能
 // ==========================================
 window.openAdminRegistrations = async function(actId, actName) {
     const btn = event.target; const originalText = btn.innerText; btn.innerText = "載入名單中..."; btn.disabled = true;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getEventRegistrations', actId: actId }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'getEventRegistrations', actId: actId });
         
         if (result.success) {
             let regs = result.data; let listHtml = '';
@@ -388,11 +415,7 @@ window.sendCustomEventEmail = async function(actId) {
 
     let btn = event.target; let originalText = btn.innerText; btn.innerText = "發送中..."; btn.disabled = true;
     try {
-        const response = await fetch(GAS_API_URL, { 
-            method: 'POST', 
-            body: JSON.stringify({ action: 'sendEventEmails', uid: currentLiffProfile.userId, actId: actId, targetType: 'custom', subject: subject, customText: bodyText, selectedUids: selectedUids }) 
-        });
-        const result = await response.json();
+        const result = await callApi({ action: 'sendEventEmails', uid: currentLiffProfile.userId, actId: actId, targetType: 'custom', subject: subject, customText: bodyText, selectedUids: selectedUids });
         alert(result.success ? result.message : '寄信失敗：' + result.message);
     } catch (error) { alert('系統連線異常，信件可能未完整送出'); }
     btn.innerText = originalText; btn.disabled = false;
@@ -401,8 +424,7 @@ window.sendCustomEventEmail = async function(actId) {
 window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElement) {
     selectElement.disabled = true;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateRegStatus', uid: currentLiffProfile.userId, sheetName: sheetName, rowIdx: rowIdx, newStatus: newStatus }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'updateRegStatus', uid: currentLiffProfile.userId, sheetName: sheetName, rowIdx: rowIdx, newStatus: newStatus });
         if (result.success) { 
             let card = selectElement.closest('div').parentElement;
             card.style.borderLeftColor = newStatus === '已繳費' ? '#4CAF50' : (newStatus === '未繳費' ? '#d9534f' : '#BF9A5A'); 
@@ -434,22 +456,17 @@ window.submitActivity = async function() {
     let reqBody = { action: editingActivityId ? 'updateActivity' : 'createActivity', uid: currentLiffProfile.userId, activityData: actData };
     if (editingActivityId) reqBody.actId = editingActivityId;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify(reqBody) });
-        const result = await response.json();
+        const result = await callApi(reqBody);
         if (result.success) { alert(editingActivityId ? '活動更新成功！' : '活動發布成功！'); cancelEditActivity(); fetchAndRenderAdminData(); } 
         else alert('操作失敗：' + result.message);
     } catch (error) { alert('系統連線異常'); }
     btn.disabled = false;
 };
 
-// 🌟 強制防呆轉型載入編輯功能，確保不再受錯位資料影響
 window.loadActivityForEdit = function(actId) {
     try {
         let act = adminActivitiesData.find(a => a.id === actId);
-        if (!act) {
-            alert('找不到該筆活動資料');
-            return;
-        }
+        if (!act) { alert('找不到該筆活動資料'); return; }
         editingActivityId = actId;
         
         let titleEl = document.getElementById('act-form-title');
@@ -480,19 +497,14 @@ window.loadActivityForEdit = function(actId) {
         safeSet('act-capacity', act.capacity); 
         safeSet('act-desc', act.desc);
         
-        // 🌟 防呆：強制轉型 String，避免讀到錯位的數字資料時 split() 崩潰
         let rawMedia = String(act.media || '');
         if (rawMedia === 'undefined' || rawMedia === 'null') rawMedia = '';
         currentImageAssets = rawMedia.split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() }));
         
-        if (typeof renderImagePreviews === 'function') {
-            renderImagePreviews(); 
-        }
+        if (typeof renderImagePreviews === 'function') { renderImagePreviews(); }
         
         let container = document.getElementById('act-form-container');
-        if (container) {
-            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        if (container) { container.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
     } catch(e) {
         console.error("編輯活動載入失敗:", e);
         alert("載入失敗，可能遇到舊有的錯位資料，系統已攔截崩潰。");
@@ -501,9 +513,19 @@ window.loadActivityForEdit = function(actId) {
 
 window.cancelEditActivity = function() {
     editingActivityId = null;
-    document.getElementById('act-form-title').innerText = "📢 新增活動發布"; document.getElementById('submit-act-btn').innerText = "發布活動"; document.getElementById('btn-cancel-edit').style.display = "none";
-    ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('act-target').value = '所有會員';
+    let titleEl = document.getElementById('act-form-title');
+    let btnEl = document.getElementById('submit-act-btn');
+    let cancelBtn = document.getElementById('btn-cancel-edit');
+    if(titleEl) titleEl.innerText = "📢 新增活動發布"; 
+    if(btnEl) btnEl.innerText = "發布活動"; 
+    if(cancelBtn) cancelBtn.style.display = "none";
+    
+    ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc'].forEach(id => {
+        let el = document.getElementById(id);
+        if(el) el.value = '';
+    });
+    let targetEl = document.getElementById('act-target');
+    if(targetEl) targetEl.value = '所有會員';
     currentImageAssets = []; 
     if (typeof renderImagePreviews === 'function') renderImagePreviews();
 };
@@ -511,8 +533,7 @@ window.cancelEditActivity = function() {
 window.deleteAdminActivity = async function(actId, actName) {
     if (!confirm(`⚠️ 確定要刪除活動「${actName}」嗎？此動作無法復原！`)) return;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteActivity', uid: currentLiffProfile.userId, actId: actId }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'deleteActivity', uid: currentLiffProfile.userId, actId: actId });
         if (result.success) { alert('活動已刪除！'); fetchAndRenderAdminData(); } else alert('刪除失敗');
     } catch (error) { alert('系統連線異常'); }
 };
@@ -521,42 +542,49 @@ window.deleteAdminActivity = async function(actId, actName) {
 // 🌟 管理員：其他會員操作邏輯
 // ==========================================
 function filterMembers() {
-    const input = document.getElementById('member-search').value.toLowerCase();
-    document.querySelectorAll('.member-item').forEach(item => { item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none"; });
+    const searchInput = document.getElementById('member-search');
+    const input = searchInput ? searchInput.value.toLowerCase() : '';
+    document.querySelectorAll('.member-item').forEach(item => { 
+        item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none"; 
+    });
 }
+
 async function approveMemberBtn(targetUid) {
-    const dateInput = document.getElementById(`date-${targetUid}`).value;
-    const levelInput = document.getElementById(`level-${targetUid}`).value;
+    let dateEl = document.getElementById(`date-${targetUid}`);
+    let levelEl = document.getElementById(`level-${targetUid}`);
+    const dateInput = dateEl ? dateEl.value : '';
+    const levelInput = levelEl ? levelEl.value : '一般會員';
+    
     if (!dateInput) return alert('請選擇到期日');
     if (!confirm(`確認升級為「${levelInput}」嗎？`)) return;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput });
         if (result.success) { alert('核准成功！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
+
 async function rejectMemberBtn(targetUid) {
     if (!confirm('確定要駁回嗎？')) return;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'rejectMember', uid: currentLiffProfile.userId, targetUid: targetUid }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'rejectMember', uid: currentLiffProfile.userId, targetUid: targetUid });
         if (result.success) { alert('已駁回！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
+
 async function extendMemberBtn(targetUid) {
-    const newDate = document.getElementById(`extend-date-${targetUid}`).value;
+    let dateEl = document.getElementById(`extend-date-${targetUid}`);
+    const newDate = dateEl ? dateEl.value : '';
     if (!newDate) return alert('請選擇到期日');
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'extendMemberExpiry', uid: currentLiffProfile.userId, targetUid: targetUid, newDate: newDate }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'extendMemberExpiry', uid: currentLiffProfile.userId, targetUid: targetUid, newDate: newDate });
         if (result.success) { alert('更新延期成功！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
+
 async function terminateMemberBtn(targetUid, memberName) {
     if (!confirm(`警告：確定停止「${memberName}」會籍嗎？`)) return;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'terminateMember', uid: currentLiffProfile.userId, targetUid: targetUid }) });
-        const result = await response.json();
+        const result = await callApi({ action: 'terminateMember', uid: currentLiffProfile.userId, targetUid: targetUid });
         if (result.success) { alert('已停權。'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
