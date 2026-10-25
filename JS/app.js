@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (加入報名權限阻擋、動態編號預覽、與彈性的過期會員處理雙軌制)
+ * 說明：前端核心邏輯 (支援跨月資料表的狀態變更)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -174,7 +174,6 @@ function renderMemberDashboard(userData) {
         let expDate = new Date(userData.profile['授權到期日']);
         formattedExpDate = expDate.toISOString().split('T')[0];
         
-        // 🌟 防呆：如果前台判斷授權已過期，也要顯示過期警告
         let today = new Date(); today.setHours(0,0,0,0);
         let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
         
@@ -280,9 +279,8 @@ window.submitProfileUpdate = async function() {
 };
 
 // ==========================================
-// 🌟 活動與歷史紀錄 (加入報名權限與過期阻擋)
+// 🌟 活動與歷史紀錄
 // ==========================================
-
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
         const [actRes, histRes] = await Promise.all([
@@ -297,7 +295,6 @@ async function fetchMemberActivitiesAndHistory(uid) {
         if (globalActivities.length === 0) {
             actHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">近期尚無活動發布。</p>`;
         } else {
-            // 🌟 判斷是否過期
             let isUserExpired = false;
             if (globalUserData.profile['授權到期日'] && globalUserData.profile['授權到期日'] !== '無') {
                 let expDate = new Date(globalUserData.profile['授權到期日']);
@@ -314,14 +311,12 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 let btnText = isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名';
                 let btnColor = isRegistered ? 'background-color: var(--accent-gold);' : '';
                 
-                // 🌟 防呆：權限不符
                 if (act.targetAudience === '限她薈與創始會員' && !['她薈會員', '創始會員'].includes(globalUserData.status) && !globalUserData.isAdmin) {
                     canRegister = false;
                     btnText = '🔒 僅限她薈與創始會員';
                     btnColor = 'background-color: #d3d3d3; color: #777; cursor: not-allowed; border: none;';
                 }
                 
-                // 🌟 防呆：帳號已過期
                 if (isUserExpired && !globalUserData.isAdmin) {
                     canRegister = false;
                     btnText = '🚫 授權已過期，無法報名';
@@ -430,7 +425,7 @@ async function submitModRequest(activityId) {
 }
 
 // ==========================================
-// 🌟 管理員後台邏輯與介面 (加入異常與過期面板)
+// 🌟 管理員後台邏輯與介面
 // ==========================================
 
 function showAdminLoginModal() {
@@ -469,8 +464,8 @@ async function fetchAndRenderAdminData() {
     } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; }
 }
 
-// 🌟 編號推測聯動功能
-window.updatePreviewId = function(uid) { 
+// 🌟 編號推測連動函數
+function updatePreviewId(uid) { 
     document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[document.getElementById(`level-${uid}`).value]; 
 }
 
@@ -496,7 +491,6 @@ function buildAdminDashboardUI(data) {
     // ================== 管理員：會員管理區塊 ==================
     html += `<div id="admin-member-sec">`;
     
-    // 🌟 1. 授權異常會員 (置頂紅字警告)
     if (data.abnormal && data.abnormal.length > 0) {
         html += `<div style="background-color: #fff3cd; border: 2px solid #d9534f; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; box-shadow: 0 4px 10px rgba(217,83,79,0.2);">`;
         html += `<h4 style="color: #d9534f; margin-top: 0; margin-bottom: 10px; font-size: 1.1rem; text-align: center;">🚨 授權期限異常，請協助調整 (${data.abnormal.length} 筆)</h4>`;
@@ -511,7 +505,6 @@ function buildAdminDashboardUI(data) {
         html += `</div>`;
     }
     
-    // 🌟 2. 過期待處理會員區塊
     if (data.expired && data.expired.length > 0) {
         html += getPremiumHeader('🚨', `過期待處理會員 (${data.expired.length} 筆)`);
         data.expired.forEach(m => {
@@ -529,6 +522,11 @@ function buildAdminDashboardUI(data) {
                     <details style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
                         <summary style="color: #d9534f; font-weight: bold; font-size: 0.95rem; outline: none; margin-bottom: 10px;">⚙️ 執行降級與重發編號</summary>
                         <div style="background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px;">
+                            <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">單純延期：</label>
+                            <div style="display:flex; gap:10px; margin-bottom:20px;"><input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin:0; flex:2; padding:12px; border-radius: 8px; box-sizing:border-box;"><button class="btn-secondary" style="flex:1; padding:12px; font-size:0.95rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="extendMemberBtn('${m.uid}')">💾 更新延期</button></div>
+                            
+                            <hr style="border: 0; border-top: 1px dashed #ddd; margin: 15px 0;">
+                            
                             <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">選擇降級至：</label>
                             <div style="display:flex; gap:10px; margin-bottom:15px;">
                                 <select id="change-level-${m.uid}" class="admin-search-bar" style="margin:0; flex:1; padding:12px; border-radius: 8px;">
@@ -674,7 +672,6 @@ function buildAdminDashboardUI(data) {
     document.getElementById('app-content').innerHTML = html;
 }
 
-// 🌟 變更等級與降級邏輯
 window.changeMemberLevelBtn = async function(targetUid) {
     const dateInput = document.getElementById(`change-date-${targetUid}`).value;
     const levelInput = document.getElementById(`change-level-${targetUid}`).value;
@@ -687,7 +684,7 @@ window.changeMemberLevelBtn = async function(targetUid) {
 }
 
 // ==========================================
-// 🌟 管理員：報名名單與寄信功能
+// 🌟 管理員：報名名單與寄信功能 (加入 sheetName 傳遞)
 // ==========================================
 
 window.openAdminRegistrations = async function(actId, actName) {
@@ -719,7 +716,7 @@ window.openAdminRegistrations = async function(actId, actName) {
                                 <p style="font-size:0.9rem; color:#666; margin:0 0 12px;">繳費方式：${reg.payment}</p>
                                 <div style="display:flex; align-items:center; gap:10px; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px;">
                                     <label style="font-size:0.9rem; font-weight:bold; color: #444;">狀態：</label>
-                                    <select onchange="updateRegStatus(${reg.rowIdx}, this.value, this)" style="padding:8px; border-radius:6px; border:1px solid #ccc; font-size:0.9rem; flex:1; outline: none;">
+                                    <select onchange="updateRegStatus('${reg.sheetName}', ${reg.rowIdx}, this.value, this)" style="padding:8px; border-radius:6px; border:1px solid #ccc; font-size:0.9rem; flex:1; outline: none;">
                                         <option value="已報名" ${reg.status==='已報名'?'selected':''}>已報名 (預設)</option>
                                         <option value="已繳費" ${reg.status==='已繳費'?'selected':''}>✅ 已繳費確認</option>
                                         <option value="未繳費" ${reg.status==='未繳費'?'selected':''}>❌ 未繳費</option>
@@ -803,7 +800,6 @@ window.sendCustomEventEmail = async function(actId) {
     if (!confirm(`確定要發送信件給勾選的 ${selectedUids.length} 人嗎？`)) return;
 
     let btn = event.target; let originalText = btn.innerText; btn.innerText = "發送中..."; btn.disabled = true;
-
     try {
         const response = await fetch(GAS_API_URL, { 
             method: 'POST', 
@@ -815,11 +811,13 @@ window.sendCustomEventEmail = async function(actId) {
     btn.innerText = originalText; btn.disabled = false;
 };
 
-window.updateRegStatus = async function(rowIdx, newStatus, selectElement) {
+// 🌟 狀態更新加入 sheetName 傳遞
+window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElement) {
     selectElement.disabled = true;
     try {
-        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateRegStatus', uid: currentLiffProfile.userId, rowIdx: rowIdx, newStatus: newStatus }) });
-        if ((await response.json()).success) { 
+        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateRegStatus', uid: currentLiffProfile.userId, sheetName: sheetName, rowIdx: rowIdx, newStatus: newStatus }) });
+        const result = await response.json();
+        if (result.success) { 
             let card = selectElement.closest('div').parentElement;
             card.style.borderLeftColor = newStatus === '已繳費' ? '#4CAF50' : (newStatus === '未繳費' ? '#d9534f' : '#BF9A5A'); 
             let checkbox = card.querySelector('.email-checkbox');
@@ -915,8 +913,9 @@ window.submitActivity = async function() {
     if (editingActivityId) reqBody.actId = editingActivityId;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify(reqBody) });
-        if ((await response.json()).success) { alert(editingActivityId ? '活動更新成功！' : '活動發布成功！'); cancelEditActivity(); fetchAndRenderAdminData(); } 
-        else alert('操作失敗');
+        const result = await response.json();
+        if (result.success) { alert(editingActivityId ? '活動更新成功！' : '活動發布成功！'); cancelEditActivity(); fetchAndRenderAdminData(); } 
+        else alert('操作失敗：' + result.message);
     } catch (error) { alert('系統連線異常'); }
     btn.disabled = false;
 };
@@ -947,7 +946,8 @@ window.deleteAdminActivity = async function(actId, actName) {
     if (!confirm(`⚠️ 確定要刪除活動「${actName}」嗎？此動作無法復原！`)) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteActivity', uid: currentLiffProfile.userId, actId: actId }) });
-        if ((await response.json()).success) { alert('活動已刪除！'); fetchAndRenderAdminData(); } else alert('刪除失敗');
+        const result = await response.json();
+        if (result.success) { alert('活動已刪除！'); fetchAndRenderAdminData(); } else alert('刪除失敗');
     } catch (error) { alert('系統連線異常'); }
 };
 
@@ -962,14 +962,16 @@ async function approveMemberBtn(targetUid) {
     if (!confirm(`確認升級為「${levelInput}」嗎？`)) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }) });
-        if ((await response.json()).success) { alert('核准成功！'); fetchAndRenderAdminData(); }
+        const result = await response.json();
+        if (result.success) { alert('核准成功！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
 async function rejectMemberBtn(targetUid) {
     if (!confirm('確定要駁回嗎？')) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'rejectMember', uid: currentLiffProfile.userId, targetUid: targetUid }) });
-        if ((await response.json()).success) { alert('已駁回！'); fetchAndRenderAdminData(); }
+        const result = await response.json();
+        if (result.success) { alert('已駁回！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
 async function extendMemberBtn(targetUid) {
@@ -977,13 +979,15 @@ async function extendMemberBtn(targetUid) {
     if (!newDate) return alert('請選擇到期日');
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'extendMemberExpiry', uid: currentLiffProfile.userId, targetUid: targetUid, newDate: newDate }) });
-        if ((await response.json()).success) { alert('更新延期成功！'); fetchAndRenderAdminData(); }
+        const result = await response.json();
+        if (result.success) { alert('更新延期成功！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
 async function terminateMemberBtn(targetUid, memberName) {
     if (!confirm(`警告：確定停止「${memberName}」會籍嗎？`)) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'terminateMember', uid: currentLiffProfile.userId, targetUid: targetUid }) });
-        if ((await response.json()).success) { alert('已停權。'); fetchAndRenderAdminData(); }
+        const result = await response.json();
+        if (result.success) { alert('已停權。'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
