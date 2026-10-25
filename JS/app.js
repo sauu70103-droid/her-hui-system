@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (修正管理員登入按鈕排版、優化會員名單折疊顯示)
+ * 說明：前端核心邏輯 (尊榮質感升級、修復編輯破圖、完整顯示審核資料與圖片排序)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -55,12 +55,12 @@ function formatDateTime(dateString) {
 
 window.viewFullscreenImage = function(url) {
     let overlay = document.createElement('div');
-    overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:99999; display:flex; justify-content:center; align-items:center; cursor:zoom-out;";
+    overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.95); z-index:99999; display:flex; justify-content:center; align-items:center; cursor:zoom-out;";
     overlay.onclick = () => overlay.remove();
     
     let img = document.createElement('img');
     img.src = url;
-    img.style.cssText = "max-width:95%; max-height:95%; object-fit:contain; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5);";
+    img.style.cssText = "max-width:95%; max-height:95%; object-fit:contain; border-radius:12px; box-shadow:0 15px 40px rgba(0,0,0,0.6);";
     
     overlay.appendChild(img);
     document.body.appendChild(overlay);
@@ -74,6 +74,18 @@ async function applyMinimumDelay() {
         await new Promise(resolve => setTimeout(resolve, remaining));
     }
     isFirstLoad = false;
+}
+
+// 🌟 共用高質感標題元件
+function getPremiumHeader(icon, title) {
+    return `
+        <div style="display: flex; align-items: center; margin-bottom: 18px; border-bottom: 2px solid #f5f5f5; padding-bottom: 12px;">
+            <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #BF9A5A 0%, #E2C792 100%); display: flex; justify-content: center; align-items: center; color: white; font-size: 1.1rem; margin-right: 12px; box-shadow: 0 4px 10px rgba(191,154,90,0.3);">
+                ${icon}
+            </div>
+            <h4 style="color: var(--text-inkblue); margin: 0; font-size: 1.25rem; font-weight: bold; letter-spacing: 1px;">${title}</h4>
+        </div>
+    `;
 }
 
 // ==========================================
@@ -127,12 +139,13 @@ async function checkUserRoleAndStatus(uid) {
 // ==========================================
 
 function renderRegistrationForm() {
-    const labelStyle = "font-size: 0.85rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 5px; text-align: left;";
-    const inputStyle = "width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--accent-pink); font-size: 1rem; margin-bottom: 1rem;";
+    const labelStyle = "font-size: 0.9rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px; text-align: left;";
+    const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #BF9A5A; font-size: 1rem; margin-bottom: 1.2rem; box-sizing: border-box;";
     
     return `
-        <div style="background-color: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05);">
-            <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem; text-align: center;">準會員申請表</h3>
+        <div style="background-color: #fff; padding: 2rem 1.5rem; border-radius: 16px; box-shadow: 0 8px 25px rgba(27, 39, 68, 0.08);">
+            <h3 style="color: var(--text-inkblue); margin-bottom: 0.5rem; text-align: center; font-size: 1.4rem;">準會員申請表</h3>
+            <p style="font-size: 0.95rem; margin-bottom: 2rem; text-align: center; color: #666;">請完整填寫以下資訊，加入我們</p>
             <form id="reg-form">
                 <div><label style="${labelStyle}">真實姓名</label><input type="text" id="input-name" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">手機號碼</label><input type="tel" id="input-phone" style="${inputStyle}" required></div>
@@ -140,18 +153,15 @@ function renderRegistrationForm() {
                 <div><label style="${labelStyle}">產業</label><input type="text" id="input-industry" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">公司名稱</label><input type="text" id="input-company" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">職稱</label><input type="text" id="input-jobtitle" style="${inputStyle}" required></div>
-                <div style="margin-bottom: 0.5rem;"><label style="${labelStyle}">介紹人</label><input type="text" id="input-referrer" style="${inputStyle}" required></div>
-                <button type="button" id="submit-btn" class="btn-primary" style="width: 100%; padding: 12px; font-size: 1.1rem; border-radius: 8px;" onclick="submitRegistration()">提交申請</button>
+                <div style="margin-bottom: 1rem;"><label style="${labelStyle}">介紹人</label><input type="text" id="input-referrer" style="${inputStyle}" required></div>
+                <button type="button" id="submit-btn" class="btn-primary" style="width: 100%; padding: 14px; font-size: 1.15rem; border-radius: 8px; font-weight: bold;" onclick="submitRegistration()">送出申請</button>
             </form>
         </div>
     `;
 }
 
 async function submitRegistration() {
-    if (!currentLiffProfile) {
-        alert("無法取得 LINE 授權資料，請重新載入頁面。");
-        return;
-    }
+    if (!currentLiffProfile) return alert("無法取得 LINE 授權資料");
     
     const actData = {
         realName: document.getElementById('input-name').value.trim(),
@@ -164,8 +174,7 @@ async function submitRegistration() {
     };
     
     if (!actData.realName || !actData.phone || !actData.email || !actData.industry || !actData.company || !actData.jobTitle || !actData.referrer) {
-        alert("請確認所有欄位皆已填寫完畢！");
-        return;
+        return alert("請確認所有欄位皆已填寫完畢！");
     }
     
     const btn = document.getElementById('submit-btn');
@@ -192,12 +201,12 @@ async function submitRegistration() {
             renderMemberDashboard(newData);
         } else { 
             alert("註冊失敗：" + result.message); 
-            btn.innerText = "提交申請"; 
+            btn.innerText = "送出申請"; 
             btn.disabled = false; 
         }
     } catch (error) { 
         alert("系統連線錯誤"); 
-        btn.innerText = "提交申請"; 
+        btn.innerText = "送出申請"; 
         btn.disabled = false; 
     }
 }
@@ -250,34 +259,37 @@ function renderMemberDashboard(userData) {
 
     let extraInfoHtml = `
         <details style="margin-top: 15px; cursor: pointer;">
-            <summary style="color: var(--text-inkblue); font-weight: bold; padding: 5px 0; outline: none;">📂 點擊展開/編輯詳細資料</summary>
-            <div style="background: rgba(191,154,90,0.05); padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px dashed var(--accent-gold);">
-                <p style="margin: 0 0 8px; font-size: 0.9rem;"><strong>手機：</strong> ${displayPhone}</p>
-                <p style="margin: 0 0 8px; font-size: 0.9rem;"><strong>Email：</strong> ${userData.profile['Email'] || '-'}</p>
-                <p style="margin: 0 0 8px; font-size: 0.9rem;"><strong>產業：</strong> ${userData.profile['產業'] || '-'}</p>
-                <p style="margin: 0 0 8px; font-size: 0.9rem;"><strong>公司：</strong> ${userData.profile['公司名稱'] || '-'}</p>
-                <p style="margin: 0 0 8px; font-size: 0.9rem;"><strong>職稱：</strong> ${userData.profile['職稱'] || '-'}</p>
-                <p style="margin: 0 0 15px; font-size: 0.9rem;"><strong>介紹人：</strong> ${userData.profile['介紹人'] || '-'}</p>
-                <button class="btn-secondary" style="width: 100%;" onclick="openEditProfileModal()">✏️ 編輯個人資料</button>
+            <summary style="color: var(--accent-gold); font-weight: bold; padding: 5px 0; outline: none; font-size: 1rem;">
+                📂 點擊展開/編輯詳細資料
+            </summary>
+            <div style="background: #F8F5EF; padding: 18px; border-radius: 12px; margin-top: 12px; border: 1px dashed var(--accent-gold);">
+                <p style="margin: 0 0 10px; font-size: 0.95rem; color: #444;"><strong>手機：</strong> ${displayPhone}</p>
+                <p style="margin: 0 0 10px; font-size: 0.95rem; color: #444;"><strong>Email：</strong> ${userData.profile['Email'] || '-'}</p>
+                <p style="margin: 0 0 10px; font-size: 0.95rem; color: #444;"><strong>產業：</strong> ${userData.profile['產業'] || '-'}</p>
+                <p style="margin: 0 0 10px; font-size: 0.95rem; color: #444;"><strong>公司：</strong> ${userData.profile['公司名稱'] || '-'}</p>
+                <p style="margin: 0 0 10px; font-size: 0.95rem; color: #444;"><strong>職稱：</strong> ${userData.profile['職稱'] || '-'}</p>
+                <p style="margin: 0 0 20px; font-size: 0.95rem; color: #444;"><strong>介紹人：</strong> ${userData.profile['介紹人'] || '-'}</p>
+                <button class="btn-secondary" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 8px;" onclick="openEditProfileModal()">✏️ 編輯個人資料</button>
             </div>
         </details>
     `;
 
     profileHtml += `
-        <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
-            <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>姓名：</strong> <span style="float: right;">${userData.profile['真實姓名'] || '-'}</span></p>
+        <div style="background: #fff; border-radius: 20px; padding: 1.8rem; box-shadow: 0 8px 25px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem;">
+            ${getPremiumHeader('👑', '會員專屬檔案')}
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 10px; font-size: 1rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 10px; font-size: 1rem;"><strong>姓名：</strong> <span style="float: right; font-weight: bold; color: var(--text-inkblue);">${userData.profile['真實姓名'] || '-'}</span></p>
             ${extraInfoHtml}
-            <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 15px;">
-                <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br><span style="font-weight:bold; font-size: 1.1rem; color: var(--accent-gold);">${formattedExpDate}</span>
+            <div style="background: rgba(191,154,90,0.08); padding: 15px; border-radius: 12px; text-align: center; margin-top: 20px;">
+                <span style="font-size: 0.9rem; color: #666; font-weight: bold;">授權到期日</span><br>
+                <span style="font-weight:bold; font-size: 1.25rem; color: var(--accent-gold);">${formattedExpDate}</span>
             </div>
         </div>
     `;
 
     let html = `
-        <div style="text-align: center; margin-bottom: 1.5rem;">
-            <h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem;">您好，${userData.profile['真實姓名'] || '-'}</h2>
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem; font-size: 1.8rem; font-weight: bold;">您好，${userData.profile['真實姓名'] || '-'}</h2>
         </div>
         ${expiryWarningHtml}
         ${profileHtml}
@@ -287,15 +299,15 @@ function renderMemberDashboard(userData) {
         html += `
             <div id="member-loading" class="loading-text">正在載入最新活動...</div>
             <div id="activity-section" style="display:none; text-align: left;"></div>
-            <div id="history-section" style="display:none; margin-top: 2rem; text-align: left;"></div>
+            <div id="history-section" style="display:none; margin-top: 2.5rem; text-align: left;"></div>
         `;
         document.getElementById('app-content').innerHTML = html;
         fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
     } else {
         html += `
-            <div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);">
-                <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">功能鎖定中</h4>
-                <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">狀態為「準會員」。<br>請等待審核解鎖功能。</p>
+            <div style="background: #fff; padding: 2.5rem; border-radius: 16px; text-align: center; border: 1px dashed var(--accent-gold); box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
+                <h4 style="color: var(--text-inkblue); margin-bottom: 1rem; font-size: 1.3rem;">功能鎖定中</h4>
+                <p style="font-size: 1rem; color: #666; line-height: 1.8;">您的狀態目前為「準會員」。<br>請靜候管理員審核，通過後將自動解鎖完整功能。</p>
             </div>
         `;
         document.getElementById('app-content').innerHTML = html;
@@ -305,15 +317,15 @@ function renderMemberDashboard(userData) {
 window.openEditProfileModal = function() {
     let p = globalUserData.profile;
     let displayPhone = p['手機號碼'] ? String(p['手機號碼']).replace(/^'/, '') : '';
-    const inputStyle = "width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
-    const labelStyle = "font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;";
+    const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
+    const labelStyle = "font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;";
 
     let html = `
         <div id="edit-profile-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) this.remove()">
             <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:2rem 1.5rem; max-height:85vh; overflow-y:auto; position:relative; text-align:left;">
-                <button onclick="document.getElementById('edit-profile-modal').remove()" style="position:absolute; top:15px; right:20px; background:none; border:none; font-size:1.8rem; color:#999; cursor:pointer;">&times;</button>
-                <h3 style="color:var(--text-inkblue); margin-top:0; border-bottom:2px solid var(--accent-gold); padding-bottom:8px;">✏️ 編輯個人資料</h3>
-                <p style="font-size:0.8rem; color:#666; margin-bottom:15px;">此處不會修改您的到期日與編號，請安心編輯。</p>
+                <button onclick="document.getElementById('edit-profile-modal').remove()" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:2rem; color:#999; cursor:pointer;">&times;</button>
+                ${getPremiumHeader('✏️', '編輯個人資料')}
+                <p style="font-size:0.85rem; color:#666; margin-bottom:20px;">此處不會修改您的到期日與編號，請安心編輯。</p>
                 
                 <label style="${labelStyle}">真實姓名</label><input type="text" id="edit-name" style="${inputStyle}" value="${p['真實姓名']||''}">
                 <label style="${labelStyle}">手機號碼</label><input type="text" id="edit-phone" style="${inputStyle}" value="${displayPhone}">
@@ -322,7 +334,7 @@ window.openEditProfileModal = function() {
                 <label style="${labelStyle}">公司名稱</label><input type="text" id="edit-company" style="${inputStyle}" value="${p['公司名稱']||''}">
                 <label style="${labelStyle}">職稱</label><input type="text" id="edit-jobtitle" style="${inputStyle}" value="${p['職稱']||''}">
                 
-                <button class="btn-primary" id="btn-save-profile" style="width: 100%; margin-top:10px;" onclick="submitProfileUpdate()">儲存更新</button>
+                <button class="btn-primary" id="btn-save-profile" style="width: 100%; padding: 14px; font-size: 1.1rem; margin-top:10px; border-radius: 8px;" onclick="submitProfileUpdate()">儲存更新</button>
             </div>
         </div>
     `;
@@ -361,6 +373,10 @@ window.submitProfileUpdate = async function() {
     }
 };
 
+// ==========================================
+// 🌟 活動與歷史紀錄
+// ==========================================
+
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
         const [actRes, histRes] = await Promise.all([
@@ -378,26 +394,26 @@ async function fetchMemberActivitiesAndHistory(uid) {
         let historyData = (await histRes.json()).data || [];
         document.getElementById('member-loading').style.display = 'none';
 
-        let actHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">📅 最新活動與報名</h4>`;
+        let actHtml = getPremiumHeader('📅', '最新活動與報名');
         
         if (globalActivities.length === 0) {
-            actHtml += `<p style="font-size:0.9rem; color:#666;">近期尚無活動發布。</p>`;
+            actHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">近期尚無活動發布。</p>`;
         } else {
             globalActivities.forEach(act => {
                 let imgUrls = act.media ? act.media.split(',') : [];
                 let mainImg = '';
                 if (imgUrls.length > 0 && imgUrls[0].trim() !== '') {
-                    mainImg = `<img src="${getDriveImageUrl(imgUrls[0])}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">`;
+                    mainImg = `<img src="${getDriveImageUrl(imgUrls[0])}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;">`;
                 }
                 
                 let isRegistered = historyData.some(h => h.id === act.id);
                 
                 actHtml += `
-                    <div class="data-card" style="border-left-color: var(--accent-gold); cursor: pointer;" onclick="openActivityDetailModal('${act.id}', ${isRegistered})">
+                    <div class="data-card" style="border-radius: 16px; border-left: none; border-top: 5px solid var(--accent-gold); cursor: pointer; padding: 1.5rem;" onclick="openActivityDetailModal('${act.id}', ${isRegistered})">
                         ${mainImg}
-                        <h4 style="color: var(--text-inkblue); margin-bottom: 5px;">${act.name}</h4>
-                        <p style="font-size: 0.85rem; color: #666;">📍 ${act.location} | 🕒 ${formatDateTime(act.date)}</p>
-                        <button class="btn-primary" style="width: 100%; margin-top: 10px; ${isRegistered ? 'background-color: var(--accent-gold);' : ''}">
+                        <h4 style="color: var(--text-inkblue); margin: 0 0 8px; font-size: 1.3rem;">${act.name}</h4>
+                        <p style="font-size: 0.95rem; color: #666; margin: 0 0 15px;">📍 ${act.location} <br> 🕒 ${formatDateTime(act.date)}</p>
+                        <button class="btn-primary" style="width: 100%; padding: 12px; border-radius: 8px; ${isRegistered ? 'background-color: var(--accent-gold);' : ''}">
                             ${isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名'}
                         </button>
                     </div>
@@ -408,16 +424,16 @@ async function fetchMemberActivitiesAndHistory(uid) {
         document.getElementById('activity-section').innerHTML = actHtml; 
         document.getElementById('activity-section').style.display = 'block';
 
-        let histHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">🕒 過往歷史紀錄</h4>`;
+        let histHtml = getPremiumHeader('🕒', '過往歷史紀錄');
         
         if (historyData.length === 0) {
-            histHtml += `<p style="font-size:0.9rem; color:#666;">目前尚無紀錄。</p>`;
+            histHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">目前尚無紀錄。</p>`;
         } else {
             historyData.forEach(h => {
                 histHtml += `
-                    <div class="data-card" style="border-left-color: var(--accent-pink); padding: 1rem;">
-                        <p style="margin-bottom: 4px;"><strong>${h.name}</strong> <span style="font-size: 0.8rem; color:#999;">(${h.type})</span></p>
-                        <p style="font-size: 0.85rem; color: #666;">時間：${formatDateTime(h.date)} | 繳費方式：${h.fee}</p>
+                    <div class="data-card" style="border-radius: 12px; border-left: 4px solid var(--accent-pink); padding: 1.2rem;">
+                        <p style="margin: 0 0 6px; font-size: 1.1rem;"><strong>${h.name}</strong> <span style="font-size: 0.85rem; color:#999; font-weight: normal;">(${h.type})</span></p>
+                        <p style="font-size: 0.9rem; color: #666; margin: 0;">時間：${formatDateTime(h.date)} | 繳費方式：${h.fee}</p>
                     </div>
                 `;
             });
@@ -438,41 +454,43 @@ window.openActivityDetailModal = function(actId, isRegistered) {
     let mainImg = '';
     
     if (imgUrls.length > 0 && imgUrls[0].trim() !== '') {
-        mainImg = `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:12px; margin-bottom:10px; cursor:zoom-in;">`;
+        mainImg = `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:zoom-in; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">`;
     }
     
     let subImgsHtml = '';
     if (imgUrls.length > 1) {
-        subImgsHtml = `<div style="display:flex; gap:10px; overflow-x:auto; margin-bottom:15px; padding-bottom:10px;">`;
+        subImgsHtml = `<div style="display:flex; gap:12px; overflow-x:auto; margin-bottom:20px; padding-bottom:10px;">`;
         for (let i = 1; i < imgUrls.length; i++) {
             if (imgUrls[i].trim() !== '') {
-                subImgsHtml += `<img src="${getDriveImageUrl(imgUrls[i])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[i])}')" title="點擊放大" style="width:80px; height:80px; object-fit:cover; border-radius:8px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee;">`;
+                subImgsHtml += `<img src="${getDriveImageUrl(imgUrls[i])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[i])}')" title="點擊放大" style="width:85px; height:85px; object-fit:cover; border-radius:10px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">`;
             }
         }
         subImgsHtml += `</div>`;
     }
 
-    const inputStyle = "width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
+    const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
     let formHtml = '';
 
     if (isRegistered) {
         formHtml = `
-            <div style="background: rgba(191,154,90,0.1); padding: 15px; border-radius: 12px; margin-top: 20px; text-align:left;">
-                <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:1px solid #ddd; padding-bottom:8px;">📝 提出人數異動申請</h4>
-                <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">欲修改之新參加人數：</label>
+            <div style="background: rgba(191,154,90,0.08); padding: 1.5rem; border-radius: 16px; margin-top: 25px; text-align:left;">
+                <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:2px solid #ddd; padding-bottom:10px; font-size: 1.15rem;">📝 提出人數異動申請</h4>
+                <p style="font-size:0.9rem; color:#666; margin-bottom: 15px;">您已報名此活動。若需修改參加人數，請填寫下方新的人數並送出申請。</p>
+                <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:8px;">欲修改之新參加人數：</label>
                 <input type="number" id="mod-pax" style="${inputStyle}" value="1" min="0">
-                <button class="btn-primary" style="width: 100%; background-color: #d9534f;" onclick="submitModRequest('${act.id}')">送出異動申請</button>
+                <button class="btn-primary" style="width: 100%; background-color: #d9534f; padding: 12px; border-radius: 8px; font-size: 1.05rem;" onclick="submitModRequest('${act.id}')">送出異動申請</button>
             </div>
         `;
     } else {
         formHtml = `
-            <div style="background: #fdfdfd; padding: 15px; border-radius: 12px; border: 1px solid #eee; margin-top: 20px; text-align:left;">
-                <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:1px solid #ddd; padding-bottom:8px;">報名表單</h4>
-                <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">參加人數 (含本人)：</label>
+            <div style="background: #fff; padding: 1.5rem; border-radius: 16px; border: 1px solid #BF9A5A; margin-top: 25px; text-align:left; box-shadow: 0 4px 15px rgba(191,154,90,0.1);">
+                <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:2px solid #BF9A5A; padding-bottom:10px; font-size: 1.15rem;">報名表單</h4>
+                <p style="font-size:0.9rem; color:#666; margin-bottom:15px; background: #f9f9f9; padding: 10px; border-radius: 8px;">資料自動帶入：<strong>${globalUserData.profile['真實姓名']}</strong> / ${globalUserData.profile['手機號碼'].replace(/^'/, '')}</p>
+                <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:8px;">參加人數 (含本人)：</label>
                 <input type="number" id="reg-pax" style="${inputStyle}" value="1" min="1">
-                <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">繳費方式：</label>
-                <input type="text" id="reg-payment" style="${inputStyle}" placeholder="請輸入繳費方式">
-                <button class="btn-primary" style="width: 100%;" onclick="submitActivityRegistration('${act.id}')">確認送出報名</button>
+                <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:8px;">繳費方式：</label>
+                <input type="text" id="reg-payment" style="${inputStyle}" placeholder="請輸入繳費方式 (如轉帳後五碼)">
+                <button class="btn-primary" style="width: 100%; padding: 12px; border-radius: 8px; font-size: 1.05rem;" onclick="submitActivityRegistration('${act.id}')">確認送出報名</button>
             </div>
         `;
     }
@@ -480,13 +498,14 @@ window.openActivityDetailModal = function(actId, isRegistered) {
     document.body.insertAdjacentHTML('beforeend', `
         <div id="act-detail-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) this.remove()">
             <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:2rem 1.5rem; max-height:85vh; overflow-y:auto; position:relative; text-align:left;">
-                <button onclick="document.getElementById('act-detail-modal').remove()" style="position:absolute; top:15px; right:20px; background:none; border:none; font-size:1.8rem; color:#999; cursor:pointer;">&times;</button>
+                <button onclick="document.getElementById('act-detail-modal').remove()" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:2rem; color:#999; cursor:pointer;">&times;</button>
                 ${mainImg}
                 ${subImgsHtml}
-                <h3 style="color:var(--text-inkblue); margin: 10px 0 5px;">${act.name}</h3>
-                <p style="font-size:0.9rem; color:#666; margin-bottom:5px;">📍 ${act.location} | 🕒 ${formatDateTime(act.date)}</p>
-                <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee}</span> | 截止: ${formatDateTime(act.deadline)}</p>
-                <div style="font-size:0.95rem; line-height:1.6; color:#444; border-top:1px dashed #ddd; padding-top:15px;">
+                <h3 style="color:var(--text-inkblue); margin: 10px 0 8px; font-size: 1.4rem;">${act.name}</h3>
+                <p style="font-size:0.95rem; color:#666; margin-bottom:8px;">📍 ${act.location}</p>
+                <p style="font-size:0.95rem; color:#666; margin-bottom:8px;">🕒 ${formatDateTime(act.date)}</p>
+                <p style="font-size:0.95rem; color:#666; margin-bottom:20px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee}</span> | 截止: ${formatDateTime(act.deadline)}</p>
+                <div style="font-size:1rem; line-height:1.7; color:#444; border-top:1px dashed #ddd; padding-top:20px;">
                     ${act.desc.replace(/\n/g, '<br>')}
                 </div>
                 ${formHtml}
@@ -564,21 +583,21 @@ async function submitModRequest(activityId) {
 }
 
 // ==========================================
-// 🌟 管理員後台邏輯與介面
+// 🌟 管理員後台邏輯與介面 (排版修復)
 // ==========================================
 
 function showAdminLoginModal() {
     if (document.getElementById('admin-modal')) return;
     
-    // 🌟 修正登入按鈕歪斜的問題 (強制 Flexbox 對齊與寬度統一)
+    // 🌟 修正登入按鈕歪斜的問題
     document.body.insertAdjacentHTML('beforeend', `
         <div id="admin-modal" class="modal-overlay">
-            <div class="modal-content" style="text-align: center; max-width: 320px; width: 90%;">
-                <h3 style="color: var(--text-inkblue); margin-bottom: 20px;">管理員權限驗證</h3>
-                <input type="password" id="admin-pwd" class="modal-input" placeholder="••••••••" style="width: 100%; text-align: center; letter-spacing: 5px; padding: 12px; margin-bottom: 25px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 8px;">
+            <div class="modal-content" style="text-align: center; max-width: 340px; width: 90%; padding: 2.5rem 1.5rem; border-radius: 20px;">
+                <h3 style="color: var(--text-inkblue); margin-bottom: 25px; font-size: 1.4rem;">管理員權限驗證</h3>
+                <input type="password" id="admin-pwd" class="modal-input" placeholder="••••••••" style="width: 100%; text-align: center; letter-spacing: 5px; padding: 14px; margin-bottom: 25px; box-sizing: border-box; border: 2px solid #BF9A5A; border-radius: 10px; font-size: 1.2rem;">
                 <div style="display: flex; gap: 15px; justify-content: center; align-items: center;">
-                    <button class="btn-secondary" style="flex: 1; background-color: #999; padding: 12px; border: none; border-radius: 8px; color: white;" onclick="document.getElementById('admin-modal').remove()">取消</button>
-                    <button class="btn-primary" id="login-admin-btn" style="flex: 1; padding: 12px; border: none; border-radius: 8px;" onclick="verifyAdminPassword()">確認進入</button>
+                    <button class="btn-secondary" style="flex: 1; background-color: #999; padding: 14px; border: none; border-radius: 10px; color: white; font-size: 1.05rem;" onclick="document.getElementById('admin-modal').remove()">取消</button>
+                    <button class="btn-primary" id="login-admin-btn" style="flex: 1; padding: 14px; border: none; border-radius: 10px; font-size: 1.05rem;" onclick="verifyAdminPassword()">確認進入</button>
                 </div>
             </div>
         </div>
@@ -658,54 +677,72 @@ function buildAdminDashboardUI(data) {
 
     let html = `
         <h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button id="tab-btn-members" class="btn-primary" style="flex: 1; border-radius: 20px; transition: 0.3s;" onclick="switchAdminTab('members')">👥 會員管理</button>
-            <button id="tab-btn-activities" class="btn-primary" style="flex: 1; border-radius: 20px; opacity: 0.5; background-color: var(--accent-gold); transition: 0.3s;" onclick="switchAdminTab('activities')">📢 活動管理</button>
+        <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+            <button id="tab-btn-members" class="btn-primary" style="flex: 1; border-radius: 20px; transition: 0.3s; padding: 12px; font-size: 1.1rem;" onclick="switchAdminTab('members')">👥 會員管理</button>
+            <button id="tab-btn-activities" class="btn-primary" style="flex: 1; border-radius: 20px; opacity: 0.5; background-color: var(--accent-gold); transition: 0.3s; padding: 12px; font-size: 1.1rem;" onclick="switchAdminTab('activities')">📢 活動管理</button>
         </div>
     `;
 
     // ================== 管理員：會員管理區塊 ==================
     html += `<div id="admin-member-sec">`;
-    html += `<h4 style="color: #d9534f; margin-bottom: 10px;">⚠️ 即將到期會員提醒 (${data.expiring.length} 筆)</h4>`;
     
+    html += getPremiumHeader('⚠️', `即將到期提醒 (${data.expiring.length} 筆)`);
     if (data.expiring.length === 0) {
-        html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
+        html += `<p style="font-size:0.95rem; color:#666; margin-bottom:1.5rem; text-align: center;">目前無即將到期的會員。</p>`;
     } else {
         data.expiring.forEach(m => {
-            html += `<div class="data-card data-card-danger"><p><strong>${m.name}</strong> (${m.phone}) - [${m.status}] 到期日: ${m.expiryDate}</p></div>`;
+            html += `<div class="data-card data-card-danger" style="border-radius: 12px;"><p style="margin:0;"><strong>${m.name}</strong> (${m.phone}) - [${m.status}] <br><span style="color:#d9534f; font-size: 0.9rem;">到期日: ${m.expiryDate}</span></p></div>`;
         });
     }
 
-    html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">⏳ 準會員審核區 (${data.pending.length} 筆)</h4>`;
+    html += getPremiumHeader('⏳', `準會員審核區 (${data.pending.length} 筆)`);
     
     if (data.pending.length === 0) {
-        html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無待審核的會員。</p>`;
+        html += `<p style="font-size:0.95rem; color:#666; margin-bottom:1.5rem; text-align: center;">目前無待審核的會員。</p>`;
     } else {
+        // 🌟 準會員審核區：資料完整且美觀的呈現
         data.pending.forEach(m => {
             html += `
-                <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
-                    <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email} | 產業: ${m.industry}</p>
-                    <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級：</label>
-                    <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;" onchange="updatePreviewId('${m.uid}')">
+                <div class="data-card" id="pending-card-${m.uid}" style="text-align: left; border-top: 5px solid var(--text-inkblue); border-radius: 16px; padding: 1.5rem;">
+                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                        <div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #BF9A5A 0%, #E2C792 100%); display: flex; justify-content: center; align-items: center; color: white; font-size: 1.3rem; font-weight: bold; margin-right: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                            ${m.name.charAt(0)}
+                        </div>
+                        <div>
+                            <h4 style="margin: 0; font-size: 1.2rem; color: var(--text-inkblue);">${m.name}</h4>
+                            <p style="margin: 4px 0 0; font-size: 0.9rem; color: #666;">📞 ${m.phone}</p>
+                        </div>
+                    </div>
+                    
+                    <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 0.95rem; color: #444; border: 1px dashed #BF9A5A;">
+                        <p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p>
+                        <p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
+                    </div>
+
+                    <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級：</label>
+                    <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')">
                         <option value="一般會員">一般會員</option>
                         <option value="她薈會員">她薈會員</option>
                         <option value="創始會員">創始會員</option>
                     </select>
-                    <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 15px;">
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 10px 5px;" onclick="rejectMemberBtn('${m.uid}')">駁回</button>
-                        <button class="btn-secondary" style="flex: 2; padding: 10px 5px;" onclick="approveMemberBtn('${m.uid}')">確認核准</button>
+                    
+                    <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">設定授權到期日：</label>
+                    <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 18px; padding: 10px; border-radius: 8px;">
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 12px; border-radius: 8px; color: white; border: none; font-size: 1rem;" onclick="rejectMemberBtn('${m.uid}')">駁回</button>
+                        <button class="btn-secondary" style="background-color: var(--accent-gold); flex: 2; padding: 12px; border-radius: 8px; color: white; border: none; font-size: 1rem; font-weight: bold;" onclick="approveMemberBtn('${m.uid}')">確認核准入會</button>
                     </div>
                 </div>
             `;
         });
     }
 
-    html += `
-        <h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">👥 正式會員名單總覽</h4>
-        <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()">
-    `;
+    html += getPremiumHeader('👥', '正式會員名單總覽');
+    html += `<input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()" style="padding: 12px; border-radius: 10px; margin-bottom: 20px;">`;
     
     let founderList = '', annualList = '', generalList = '';
     
@@ -715,30 +752,32 @@ function buildAdminDashboardUI(data) {
         let jobTitleText = (m.jobTitle && m.jobTitle !== '-') ? m.jobTitle : '';
         let compJobStr = [companyText, jobTitleText].filter(Boolean).join(' / ') || '無公司與職稱資訊';
 
-        // 🌟 會員卡片重構：加入 details 折疊，保持版面乾淨
+        // 🌟 會員卡片重構：加入 details 折疊，保持版面乾淨並防止誤觸
         let cardHtml = `
-            <div class="data-card member-item" style="text-align:left; padding: 15px; margin-bottom: 12px; border-left: 4px solid var(--accent-gold); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); background: #fff;">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 8px;">
+            <div class="data-card member-item" style="text-align:left; padding: 1.2rem; margin-bottom: 15px; border-left: 5px solid var(--accent-gold); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); background: #fff;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
                     <div>
-                        <h4 style="margin: 0; color: var(--text-inkblue); font-size: 1.1rem;">${m.name} <span style="font-size: 0.85rem; color: #666; font-weight: normal;">(${m.memberId})</span></h4>
-                        <p style="margin: 4px 0 0; font-size: 0.85rem; color: #555;">🏢 ${compJobStr}</p>
+                        <h4 style="margin: 0; color: var(--text-inkblue); font-size: 1.15rem;">${m.name} <span style="font-size: 0.9rem; color: #999; font-weight: normal;">(${m.memberId})</span></h4>
+                        <p style="margin: 4px 0 0; font-size: 0.9rem; color: #555;">🏢 ${compJobStr}</p>
                     </div>
-                    <span style="font-size:0.8rem; background:#f0f0f0; padding:4px 8px; border-radius:12px; color: #333; font-weight: bold;">📞 ${displayPhone}</span>
+                    <span style="font-size:0.85rem; background:#F8F5EF; border: 1px solid #BF9A5A; padding:4px 10px; border-radius:12px; color: var(--accent-gold); font-weight: bold;">📞 ${displayPhone}</span>
                 </div>
                 
-                <details style="margin-top: 12px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
-                    <summary style="color: var(--accent-gold); font-weight: bold; font-size: 0.9rem; outline: none; margin-bottom: 10px;">⚙️ 展開詳細資訊與授權管理</summary>
-                    <div style="background: rgba(191,154,90,0.05); padding: 15px; border-radius: 8px;">
-                        <p style="margin: 0 0 5px; font-size: 0.85rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p>
-                        <p style="margin: 0 0 5px; font-size: 0.85rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p>
-                        <p style="margin: 0 0 15px; font-size: 0.85rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
+                <details style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
+                    <summary style="color: var(--text-inkblue); font-weight: bold; font-size: 0.95rem; outline: none; margin-bottom: 10px; background: rgba(191,154,90,0.1); padding: 8px 12px; border-radius: 8px; display: inline-block;">
+                        ⚙️ 展開詳細資訊與授權管理
+                    </summary>
+                    <div style="background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px;">
+                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p>
+                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p>
+                        <p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
                         
-                        <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">到期日設定 (目前: ${m.expiryDate})</label>
-                        <div style="display:flex; gap:8px; margin-bottom:15px;">
-                            <input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${m.expiryDate}" style="margin:0; flex:2; padding:10px; box-sizing:border-box;">
-                            <button class="btn-secondary" style="flex:1; padding:10px; font-size:0.85rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 6px;" onclick="extendMemberBtn('${m.uid}')">💾 更新延期</button>
+                        <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">到期日設定 (目前: ${m.expiryDate})</label>
+                        <div style="display:flex; gap:10px; margin-bottom:15px;">
+                            <input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${m.expiryDate}" style="margin:0; flex:2; padding:12px; border-radius: 8px; box-sizing:border-box;">
+                            <button class="btn-secondary" style="flex:1; padding:12px; font-size:0.95rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="extendMemberBtn('${m.uid}')">💾 更新延期</button>
                         </div>
-                        <button class="btn-secondary" style="background-color:#d9534f; color: white; width:100%; padding:10px; font-size:0.9rem; border: none; border-radius: 6px; font-weight: bold;" onclick="terminateMemberBtn('${m.uid}', '${m.name}')">🚫 停止會籍 (停權)</button>
+                        <button class="btn-secondary" style="background-color:#d9534f; color: white; width:100%; padding:12px; font-size:1rem; border: none; border-radius: 8px; font-weight: bold;" onclick="terminateMemberBtn('${m.uid}', '${m.name}')">🚫 停止會籍 (停權)</button>
                     </div>
                 </details>
             </div>
@@ -753,56 +792,62 @@ function buildAdminDashboardUI(data) {
     });
     
     html += `
-        <h5 style="color: var(--accent-gold);">👑 創始會員</h5><div>${founderList}</div>
-        <h5 style="color: var(--accent-gold);">🌸 她薈會員</h5><div>${annualList}</div>
-        <h5 style="color: var(--accent-gold);">💎 一般會員</h5><div>${generalList}</div>
+        <h5 style="color: var(--accent-gold); font-size: 1.1rem; margin-top: 20px;">👑 創始會員</h5><div>${founderList}</div>
+        <h5 style="color: var(--accent-gold); font-size: 1.1rem; margin-top: 25px;">🌸 她薈會員</h5><div>${annualList}</div>
+        <h5 style="color: var(--accent-gold); font-size: 1.1rem; margin-top: 25px;">💎 一般會員</h5><div>${generalList}</div>
         </div>
     `;
 
     // ================== 管理員：活動管理區塊 ==================
     html += `<div id="admin-act-sec" style="display:none;">`;
     
+    html += getPremiumHeader('📢', '新增活動發布');
     html += `
-        <h4 id="act-form-title" style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
-        <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;" id="act-form-container">
-            <input type="text" id="act-name" class="admin-search-bar" placeholder="活動名稱" required>
-            <select id="act-type" class="admin-search-bar">
+        <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left; border-radius: 16px; padding: 1.5rem;" id="act-form-container">
+            <input type="text" id="act-name" class="admin-search-bar" placeholder="活動名稱" required style="padding: 12px; border-radius: 8px;">
+            <select id="act-type" class="admin-search-bar" style="padding: 12px; border-radius: 8px;">
                 <option value="實體課程">實體課程</option>
                 <option value="線上講座">線上講座</option>
                 <option value="內部通告">內部通告</option>
                 <option value="跨產業聯誼">跨產業聯誼</option>
             </select>
-            <input type="datetime-local" id="act-date" class="admin-search-bar">
-            <input type="file" id="act-media" class="admin-search-bar" accept="image/*" multiple onchange="handleMultipleFileUpload(event)">
-            <div id="upload-preview-area" style="display:flex; gap:12px; overflow-x:auto; margin-bottom:15px; min-height:80px;"></div>
-            <button id="btn-upload-images" class="btn-secondary" style="width:100%; margin-bottom:15px;" onclick="uploadImagesToServer()">確認上傳並鎖定照片</button>
-            <input type="datetime-local" id="act-deadline" class="admin-search-bar">
-            <input type="text" id="act-location" class="admin-search-bar" placeholder="地點">
-            <input type="text" id="act-fee" class="admin-search-bar" placeholder="費用">
-            <input type="number" id="act-capacity" class="admin-search-bar" placeholder="人數限制">
-            <textarea id="act-desc" class="admin-search-bar" placeholder="簡介" rows="3"></textarea>
-            <div style="display:flex; gap:10px;">
-                <button id="btn-cancel-edit" class="btn-secondary" style="background-color:#999; flex:1; display:none;" onclick="cancelEditActivity()">取消編輯</button>
-                <button class="btn-primary" id="submit-act-btn" style="flex:2;" onclick="submitActivity()">發布活動</button>
+            <input type="datetime-local" id="act-date" class="admin-search-bar" style="padding: 12px; border-radius: 8px;">
+            
+            <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; border: 1px dashed var(--accent-gold); margin-bottom: 15px;">
+                <label style="font-size: 0.9rem; font-weight:bold; color:var(--accent-gold); display:block; margin-bottom:10px;">📷 上傳活動圖片 (支援拖曳排序)</label>
+                <input type="file" id="act-media" class="admin-search-bar" accept="image/*" multiple onchange="handleMultipleFileUpload(event)" style="padding: 8px;">
+                <div id="upload-preview-area" style="display:flex; gap:12px; overflow-x:auto; margin-bottom:15px; min-height:80px; padding: 10px 0;"></div>
+                <button id="btn-upload-images" class="btn-secondary" style="width:100%; margin-bottom:5px; padding: 12px; border-radius: 8px;" onclick="uploadImagesToServer()">確認上傳並鎖定照片</button>
+            </div>
+
+            <input type="datetime-local" id="act-deadline" class="admin-search-bar" style="padding: 12px; border-radius: 8px;">
+            <input type="text" id="act-location" class="admin-search-bar" placeholder="地點" style="padding: 12px; border-radius: 8px;">
+            <input type="text" id="act-fee" class="admin-search-bar" placeholder="費用 (如: 1500)" style="padding: 12px; border-radius: 8px;">
+            <input type="number" id="act-capacity" class="admin-search-bar" placeholder="人數限制" style="padding: 12px; border-radius: 8px;">
+            <textarea id="act-desc" class="admin-search-bar" placeholder="活動簡介與詳細說明..." rows="4" style="padding: 12px; border-radius: 8px;"></textarea>
+            
+            <div style="display:flex; gap:10px; margin-top: 10px;">
+                <button id="btn-cancel-edit" class="btn-secondary" style="background-color:#999; flex:1; display:none; padding: 12px; border-radius: 8px;" onclick="cancelEditActivity()">取消編輯</button>
+                <button class="btn-primary" id="submit-act-btn" style="flex:2; padding: 12px; border-radius: 8px; font-size: 1.1rem;" onclick="submitActivity()">發布活動</button>
             </div>
         </div>
     `;
 
-    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">📋 現有活動管理 (名單與寄信)</h4>`;
+    html += getPremiumHeader('📋', '現有活動管理');
     
     if (adminActivitiesData.length === 0) {
-        html += `<p style="font-size:0.9rem; color:#666;">目前尚無活動資料。</p>`;
+        html += `<p style="font-size:0.95rem; color:#666; text-align: center;">目前尚無活動資料。</p>`;
     } else {
         adminActivitiesData.forEach(act => {
             html += `
-                <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left;" id="admin-act-${act.id}">
-                    <h5 style="margin: 0 0 5px; color: var(--text-inkblue); font-size:1.1rem;">${act.name}</h5>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">📅 ${formatDateTime(act.date)} | 📍 ${act.location}</p>
-                    <div style="display:flex; flex-direction:column; gap:8px;">
-                        <button class="btn-primary" style="background-color: var(--text-inkblue); width:100%; padding:10px;" onclick="openAdminRegistrations('${act.id}', '${act.name}')">👥 查看報名名單與寄信</button>
+                <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left; border-radius: 16px; padding: 1.5rem;" id="admin-act-${act.id}">
+                    <h5 style="margin: 0 0 8px; color: var(--text-inkblue); font-size: 1.25rem;">${act.name}</h5>
+                    <p style="font-size: 0.95rem; color: #666; margin-bottom: 15px;">📅 ${formatDateTime(act.date)} <br>📍 ${act.location}</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn-primary" style="background-color: var(--text-inkblue); width:100%; padding:12px; border-radius: 8px; font-size: 1rem;" onclick="openAdminRegistrations('${act.id}', '${act.name}')">👥 查看報名名單與寄信</button>
                         <div style="display:flex; gap:10px;">
-                            <button class="btn-secondary" style="flex:1; padding:8px; font-size:0.85rem;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯活動</button>
-                            <button class="btn-primary" style="background-color:#d9534f; flex:1; padding:8px; font-size:0.85rem;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button>
+                            <button class="btn-secondary" style="flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯活動</button>
+                            <button class="btn-primary" style="background-color:#d9534f; flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button>
                         </div>
                     </div>
                 </div>
@@ -835,22 +880,22 @@ window.openAdminRegistrations = async function(actId, actName) {
             let listHtml = '';
             
             if (regs.length === 0) {
-                listHtml = `<p style="text-align:center; color:#999; margin-top:20px;">目前尚無人報名此活動</p>`;
+                listHtml = `<p style="text-align:center; color:#999; margin-top:20px; font-size: 1rem;">目前尚無人報名此活動</p>`;
             } else {
                 regs.forEach(reg => {
                     let statusColor = reg.status === '已繳費' ? '#4CAF50' : (reg.status === '未繳費' ? '#d9534f' : '#BF9A5A');
                     listHtml += `
-                        <div style="background:#fdfdfd; border:1px solid #eee; border-left:4px solid ${statusColor}; padding:12px; border-radius:8px; margin-bottom:10px;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                                <strong style="font-size:1.05rem; color:var(--text-inkblue);">${reg.name} <span style="font-size:0.85rem; color:#666; font-weight:normal;">(${reg.pax}人)</span></strong>
-                                <span style="font-size:0.8rem; background:#eee; padding:2px 6px; border-radius:4px;">${reg.phone}</span>
+                        <div style="background:#fdfdfd; border:1px solid #eee; border-left:5px solid ${statusColor}; padding:15px; border-radius:12px; margin-bottom:12px; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                                <strong style="font-size:1.1rem; color:var(--text-inkblue);">${reg.name} <span style="font-size:0.9rem; color:#666; font-weight:normal;">(${reg.pax}人)</span></strong>
+                                <span style="font-size:0.85rem; background:#F8F5EF; padding:4px 8px; border-radius:8px; color: var(--accent-gold); font-weight: bold;">${reg.phone}</span>
                             </div>
-                            <p style="font-size:0.85rem; color:#666; margin:0 0 5px;">信箱：${reg.email}</p>
-                            <p style="font-size:0.85rem; color:#666; margin:0 0 10px;">繳費方式：${reg.payment}</p>
+                            <p style="font-size:0.9rem; color:#666; margin:0 0 6px;">信箱：${reg.email}</p>
+                            <p style="font-size:0.9rem; color:#666; margin:0 0 12px;">繳費方式：${reg.payment}</p>
                             
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <label style="font-size:0.8rem; font-weight:bold;">狀態：</label>
-                                <select onchange="updateRegStatus(${reg.rowIdx}, this.value, this)" style="padding:6px; border-radius:4px; border:1px solid #ccc; font-size:0.85rem; flex:1;">
+                            <div style="display:flex; align-items:center; gap:10px; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px;">
+                                <label style="font-size:0.9rem; font-weight:bold; color: #444;">狀態：</label>
+                                <select onchange="updateRegStatus(${reg.rowIdx}, this.value, this)" style="padding:8px; border-radius:6px; border:1px solid #ccc; font-size:0.9rem; flex:1; outline: none;">
                                     <option value="已報名" ${reg.status==='已報名'?'selected':''}>已報名 (預設)</option>
                                     <option value="已繳費" ${reg.status==='已繳費'?'selected':''}>✅ 已繳費確認</option>
                                     <option value="未繳費" ${reg.status==='未繳費'?'selected':''}>❌ 未繳費</option>
@@ -862,37 +907,38 @@ window.openAdminRegistrations = async function(actId, actName) {
             }
             
             let emailSection = `
-                <div style="margin: 20px 0; padding: 15px; border: 1px solid var(--accent-gold); border-radius: 8px; background: #fff;">
-                    <h4 style="color:var(--text-inkblue); margin-top:0; margin-bottom:10px;">📧 發送自訂通知信件</h4>
+                <div style="margin: 20px 0; padding: 20px; border: 1px solid var(--accent-gold); border-radius: 12px; background: #fff; box-shadow: 0 4px 15px rgba(191,154,90,0.08);">
+                    <h4 style="color:var(--text-inkblue); margin-top:0; margin-bottom:15px; font-size: 1.15rem;">📧 發送自訂通知信件</h4>
                     
-                    <div style="display:flex; gap:10px; margin-bottom:15px;">
-                        <button class="btn-secondary" style="flex:1; padding:8px; font-size:0.8rem;" onclick="loadEmailTemplate('reminder', '${actName}')">📥 載入行前公版</button>
-                        <button class="btn-secondary" style="background-color:#d9534f; flex:1; padding:8px; font-size:0.8rem;" onclick="loadEmailTemplate('payment', '${actName}')">📥 載入催繳公版</button>
+                    <div style="display:flex; gap:10px; margin-bottom:20px;">
+                        <button class="btn-secondary" style="flex:1; padding:10px; font-size:0.9rem; border-radius: 8px;" onclick="loadEmailTemplate('reminder', '${actName}')">📥 載入行前公版</button>
+                        <button class="btn-secondary" style="background-color:#d9534f; color: white; border: none; flex:1; padding:10px; font-size:0.9rem; border-radius: 8px;" onclick="loadEmailTemplate('payment', '${actName}')">📥 載入催繳公版</button>
                     </div>
                     
-                    <label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">發送對象篩選：</label>
-                    <select id="email-target" class="admin-search-bar" style="margin-bottom:10px;">
+                    <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">發送對象篩選：</label>
+                    <select id="email-target" class="admin-search-bar" style="margin-bottom:15px; padding: 10px; border-radius: 8px;">
                         <option value="all">發送給所有報名者 (有填 Email 者)</option>
                         <option value="unpaid">僅發送給狀態為「未繳費」的報名者</option>
                     </select>
                     
-                    <label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">信件主旨：</label>
-                    <input type="text" id="email-subject" class="admin-search-bar" value="【她薈 HER HUI】活動通知：${actName}">
+                    <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">信件主旨：</label>
+                    <input type="text" id="email-subject" class="admin-search-bar" value="【她薈 HER HUI】活動通知：${actName}" style="padding: 10px; border-radius: 8px; margin-bottom: 15px;">
                     
-                    <label style="font-size:0.85rem; font-weight:bold; display:block; margin-bottom:5px;">信件內文 (可自由編輯)：</label>
-                    <textarea id="email-body" class="admin-search-bar" rows="5" placeholder="請點擊上方按鈕載入公版，或直接輸入內文..."></textarea>
+                    <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">信件內文 (可自由編輯)：</label>
+                    <textarea id="email-body" class="admin-search-bar" rows="6" placeholder="請點擊上方按鈕載入公版，或直接輸入內文..." style="padding: 10px; border-radius: 8px; margin-bottom: 20px;"></textarea>
                     
-                    <button class="btn-primary" style="width:100%;" onclick="sendCustomEventEmail('${actId}')">確認送出信件</button>
+                    <button class="btn-primary" style="width:100%; padding: 14px; font-size: 1.1rem; border-radius: 8px;" onclick="sendCustomEventEmail('${actId}')">確認送出信件</button>
                 </div>
             `;
 
             document.body.insertAdjacentHTML('beforeend', `
                 <div id="reg-list-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) this.remove()">
-                    <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:1.5rem; max-height:85vh; overflow-y:auto; position:relative; text-align:left; background:#F8F5EF;">
-                        <button onclick="document.getElementById('reg-list-modal').remove()" style="position:absolute; top:15px; right:20px; background:none; border:none; font-size:1.8rem; color:#999; cursor:pointer;">&times;</button>
-                        <h3 style="color:var(--text-inkblue); margin-top:0; border-bottom:2px solid var(--accent-gold); padding-bottom:10px;">📋 ${actName}</h3>
+                    <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:2rem 1.5rem; max-height:90vh; overflow-y:auto; position:relative; text-align:left; background:#F8F5EF;">
+                        <button onclick="document.getElementById('reg-list-modal').remove()" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:2.2rem; color:#999; cursor:pointer;">&times;</button>
+                        <h3 style="color:var(--text-inkblue); margin-top:0; border-bottom:2px solid var(--accent-gold); padding-bottom:12px; font-size: 1.35rem;">📋 ${actName}</h3>
                         ${emailSection}
-                        <h4 style="color:var(--text-inkblue); margin-bottom:10px;">報名名單 (${regs.length}筆)</h4>${listHtml}
+                        <h4 style="color:var(--text-inkblue); margin-bottom:15px; font-size: 1.15rem;">報名名單 (${regs.length}筆)</h4>
+                        ${listHtml}
                     </div>
                 </div>`);
         } else {
@@ -981,7 +1027,7 @@ window.updateRegStatus = async function(rowIdx, newStatus, selectElement) {
 };
 
 // ==========================================
-// 🌟 管理員：多圖上傳與活動建置邏輯
+// 🌟 管理員：多圖上傳與活動建置邏輯 (修復編輯破圖與排序功能)
 // ==========================================
 
 function renderImagePreviews() {
@@ -992,11 +1038,21 @@ function renderImagePreviews() {
     }
     let html = '';
     currentImageAssets.forEach((asset, idx) => {
-        let imgSrc = asset.type === 'url' ? asset.url : asset.previewUrl;
+        let isMain = idx === 0;
+        // 🌟 修復核心：若是已上傳的 URL，強制透過 getDriveImageUrl 轉換為縮圖，避免破圖
+        let imgSrc = asset.type === 'url' ? getDriveImageUrl(asset.url) : asset.previewUrl;
+        let borderColor = isMain ? 'var(--accent-gold)' : '#ddd';
+        let borderWidth = isMain ? '3px' : '1px';
+        
         html += `
-            <div style="position:relative; width:75px; flex-shrink:0;">
-                <img src="${imgSrc}" style="width:75px; height:75px; object-fit:cover; border-radius:8px;">
-                <button onclick="removeImage(${idx})" style="position:absolute; top:-5px; right:-5px; background:red; color:white; border-radius:50%; width:20px; height:20px; border:none; cursor:pointer;">X</button>
+            <div style="position:relative; display:inline-block; width:85px; flex-shrink:0; margin-right: 12px;">
+                <img src="${imgSrc}" style="width:85px; height:85px; object-fit:cover; border-radius:10px; border:${borderWidth} solid ${borderColor}; box-sizing:border-box; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+                ${isMain ? `<span style="position:absolute; top:-10px; left:-5px; background:var(--accent-gold); color:white; font-size:0.7rem; padding:3px 8px; border-radius:12px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2);">主圖</span>` : ''}
+                <button onclick="removeImage(${idx})" style="position:absolute; top:-8px; right:-8px; background:#d9534f; color:white; border:none; border-radius:50%; width:24px; height:24px; font-size:0.75rem; font-weight:bold; cursor:pointer; line-height:1; box-shadow:0 2px 5px rgba(0,0,0,0.3);">X</button>
+                <div style="display:flex; justify-content:space-between; margin-top:8px; padding:0 4px;">
+                    <button onclick="moveImage(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.2;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1.3rem; padding:0;">⬅️</button>
+                    <button onclick="moveImage(${idx}, 1)" ${idx === currentImageAssets.length - 1 ? 'disabled style="opacity:0.2;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1.3rem; padding:0;">➡️</button>
+                </div>
             </div>
         `;
     });
@@ -1006,6 +1062,16 @@ function renderImagePreviews() {
 window.removeImage = function(index) { 
     currentImageAssets.splice(index, 1); 
     renderImagePreviews(); 
+};
+
+// 🌟 修復核心：將圖片排序功能加回來
+window.moveImage = function(index, direction) {
+    if (direction === -1 && index > 0) {
+        [currentImageAssets[index], currentImageAssets[index - 1]] = [currentImageAssets[index - 1], currentImageAssets[index]];
+    } else if (direction === 1 && index < currentImageAssets.length - 1) {
+        [currentImageAssets[index], currentImageAssets[index + 1]] = [currentImageAssets[index + 1], currentImageAssets[index]];
+    }
+    renderImagePreviews();
 };
 
 window.handleMultipleFileUpload = function(event) {
@@ -1061,6 +1127,7 @@ window.uploadImagesToServer = async function() {
             });
             btn.innerText = "已鎖定上傳 ✅"; 
             btn.style.backgroundColor = "#4CAF50";
+            renderImagePreviews(); // 🌟 上傳完成後重新渲染畫面，讓它變成可預覽縮圖
         } else {
             alert('上傳失敗');
         }
@@ -1146,6 +1213,7 @@ window.loadActivityForEdit = function(actId) {
     document.getElementById('act-capacity').value = act.capacity; 
     document.getElementById('act-desc').value = act.desc;
     
+    // 🌟 將資料庫中的媒體連結載入，並立刻觸發渲染
     currentImageAssets = act.media ? act.media.split(',').filter(u => u).map(u => ({ type: 'url', url: u })) : [];
     renderImagePreviews();
     document.getElementById('act-form-container').scrollIntoView({ behavior: 'smooth' });
