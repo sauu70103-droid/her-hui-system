@@ -1,8 +1,41 @@
 /**
  * 檔案：JS/member.js
- * 說明：會員前台業務邏輯 (註冊、儀表板、個人資料、活動報名與歷史紀錄)
+ * 說明：會員前台業務邏輯 (包含系統初始化、註冊、儀表板、個人資料、活動報名與歷史紀錄)
  */
 
+// ==========================================
+// 🌟 系統初始化與登入邏輯 (啟動引擎)
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
+
+async function initializeApp() {
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) { liff.login(); return; }
+        currentLiffProfile = await liff.getProfile();
+        await checkUserRoleAndStatus(currentLiffProfile.userId);
+    } catch (error) {
+        await applyMinimumDelay();
+        document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">系統連線異常，請確認是否在 LINE 內開啟。</p>`;
+    }
+}
+
+async function checkUserRoleAndStatus(uid) {
+    try {
+        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'checkUser', uid: uid }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+        const result = await response.json();
+        await applyMinimumDelay();
+        if (result.success && result.data.isRegistered) { globalUserData = result.data; renderMemberDashboard(result.data); } 
+        else document.getElementById('app-content').innerHTML = renderRegistrationForm();
+    } catch (error) { 
+        await applyMinimumDelay();
+        document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center;">伺服器連線發生錯誤。</p>`; 
+    }
+}
+
+// ==========================================
+// 🌟 會員前台與註冊邏輯
+// ==========================================
 function renderRegistrationForm() {
     const labelStyle = "font-size: 0.9rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px; text-align: left;";
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #BF9A5A; font-size: 1rem; margin-bottom: 1.2rem; box-sizing: border-box;";
@@ -177,6 +210,9 @@ window.submitProfileUpdate = async function() {
     } catch (error) { alert('系統連線異常'); btn.innerText = '儲存更新'; btn.disabled = false; }
 };
 
+// ==========================================
+// 🌟 活動與歷史紀錄 (包含過期分流)
+// ==========================================
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
         const [actRes, histRes] = await Promise.all([
@@ -275,9 +311,9 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
     if (!act) return;
     
     let imgUrls = act.media ? String(act.media).split(',').filter(u => u.trim() !== '') : [];
-    
     let mainImg = (imgUrls.length > 0) ? `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:zoom-in; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">` : '';
     let subImgsHtml = '';
+    
     if (imgUrls.length > 1) {
         subImgsHtml = `<div style="display:flex; gap:12px; overflow-x:auto; margin-bottom:20px; padding-bottom:10px;">`;
         for (let i = 1; i < imgUrls.length; i++) {
