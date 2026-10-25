@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (修復生日格式顯示、徹底解決編輯活動按鈕死機問題，完整保留所有功能)
+ * 說明：前端核心邏輯 (日期全中文格式化、保留所有終極防呆與高階功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -19,7 +19,7 @@ let appStartTime = Date.now();
 let isFirstLoad = true;
 
 // ==========================================
-// 🌟 共用輔助函數
+// 🌟 共用輔助函數 (全中文日期轉換)
 // ==========================================
 function getDriveImageUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
@@ -31,26 +31,60 @@ function getDriveImageUrl(rawUrl) {
     return url;
 }
 
-function formatDateTime(dateString) {
-    if (!dateString) return '';
-    let cleanString = String(dateString).replace('.000Z', '').replace('T', ' ');
+function getChineseDateTime(dateVal) {
+    if (!dateVal) return '';
     try {
-        let d = new Date(dateString);
-        if (isNaN(d.getTime())) return cleanString.substring(0, 16);
+        let d = new Date(dateVal);
+        if (isNaN(d.getTime())) return String(dateVal).substring(0, 16);
         let year = d.getFullYear();
         let month = String(d.getMonth() + 1).padStart(2, '0');
         let day = String(d.getDate()).padStart(2, '0');
         let hours = String(d.getHours()).padStart(2, '0');
         let mins = String(d.getMinutes()).padStart(2, '0');
-        return `${year}-${month}-${day} ${hours}:${mins}`;
-    } catch (e) { return cleanString.substring(0, 16); }
+        return `${year}年${month}月${day}日 ${hours}:${mins}`;
+    } catch (e) { return String(dateVal).substring(0, 16); }
 }
 
-// 🌟 專門處理生日，強制只取 YYYY-MM-DD
-function cleanDateOnly(dateVal) {
+function getChineseDate(dateVal) {
     if (!dateVal || dateVal === '無') return '尚未填寫';
-    let str = String(dateVal);
-    return str.split('T')[0]; // 切除時間部分，保留日期
+    try {
+        let d = new Date(dateVal);
+        if (isNaN(d.getTime())) {
+            let parts = String(dateVal).split('T')[0].split('-');
+            if (parts.length === 3) return `${parts[0]}年${parts[1]}月${parts[2]}日`;
+            return String(dateVal);
+        }
+        let year = d.getFullYear();
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        let day = String(d.getDate()).padStart(2, '0');
+        return `${year}年${month}月${day}日`;
+    } catch (e) { return '尚未填寫'; }
+}
+
+function getStandardDate(dateVal) {
+    if (!dateVal || dateVal === '無') return '';
+    try {
+        let d = new Date(dateVal);
+        if (isNaN(d.getTime())) return String(dateVal).split('T')[0];
+        let year = d.getFullYear();
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        let day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch (e) { return ''; }
+}
+
+function getStandardDateTime(dateVal) {
+    if (!dateVal) return '';
+    try {
+        let d = new Date(dateVal);
+        if (isNaN(d.getTime())) return String(dateVal).replace(' ', 'T').substring(0, 16);
+        let year = d.getFullYear();
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        let day = String(d.getDate()).padStart(2, '0');
+        let hours = String(d.getHours()).padStart(2, '0');
+        let mins = String(d.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${mins}`;
+    } catch (e) { return ''; }
 }
 
 window.viewFullscreenImage = function(url) {
@@ -170,7 +204,8 @@ function renderMemberDashboard(userData) {
         document.getElementById('btn-member-area').onclick = () => { if (globalUserData) renderMemberDashboard(globalUserData); };
     } else { topNav.classList.add('hidden'); }
 
-    let expiryWarningHtml = ''; let formattedExpDate = '無';
+    let expiryWarningHtml = ''; 
+    let formattedExpDate = '無';
     let isApprovedMember = APPROVED_ROLES.includes(userData.status);
     let missingDataWarning = '';
     
@@ -180,7 +215,7 @@ function renderMemberDashboard(userData) {
 
     if (isApprovedMember && userData.profile['授權到期日'] && userData.profile['授權到期日'] !== '無') {
         let expDate = new Date(userData.profile['授權到期日']);
-        formattedExpDate = cleanDateOnly(expDate);
+        formattedExpDate = getChineseDate(expDate);
         
         let today = new Date(); today.setHours(0,0,0,0);
         let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
@@ -196,7 +231,7 @@ function renderMemberDashboard(userData) {
     if (typeof window.CardManager !== 'undefined') profileHtml += window.CardManager.getDashboardCardHtml(userData.status, userData.profile['真實姓名'] || '-', userData.profile['會員編號'] || '核發中');
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
-    let displayBirth = cleanDateOnly(userData.profile['生日']);
+    let displayBirth = getChineseDate(userData.profile['生日']);
     let displayGender = userData.profile['性別'] || '尚未填寫';
 
     let extraInfoHtml = `
@@ -243,9 +278,7 @@ function renderMemberDashboard(userData) {
 window.openEditProfileModal = function() {
     let p = globalUserData.profile;
     let displayPhone = p['手機號碼'] ? String(p['手機號碼']).replace(/^'/, '') : '';
-    let displayBirth = cleanDateOnly(p['生日']);
-    if (displayBirth === '尚未填寫') displayBirth = '';
-
+    let displayBirth = getStandardDate(p['生日']);
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
     const labelStyle = "font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;";
 
@@ -356,7 +389,7 @@ async function fetchMemberActivitiesAndHistory(uid) {
                         <h4 style="color: var(--text-inkblue); margin: 0 0 8px; font-size: 1.3rem;">${actNameStr}</h4>
                         ${badgeHtml}
                     </div>
-                    <p style="font-size: 0.95rem; color: #666; margin: 0 0 15px;">📍 ${act.location || ''} <br> 🕒 ${formatDateTime(act.date)}</p>
+                    <p style="font-size: 0.95rem; color: #666; margin: 0 0 15px;">📍 ${act.location || ''} <br> 🕒 ${getChineseDateTime(act.date)}</p>
                     <button class="btn-primary" style="width: 100%; padding: 12px; border-radius: 8px; ${btnColor}" ${!canRegister ? 'disabled' : ''}>
                         ${btnText}
                     </button>
@@ -379,7 +412,7 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 histHtml += `
                     <div class="data-card" ${clickAction} style="border-radius: 12px; border-left: 4px solid var(--accent-pink); padding: 1.2rem; margin-bottom: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                         <p style="margin: 0 0 6px; font-size: 1.1rem;"><strong>${h.name}</strong> <span style="font-size: 0.85rem; color:#999; font-weight: normal;">(${h.type})</span></p>
-                        <p style="font-size: 0.9rem; color: #666; margin: 0;">時間：${formatDateTime(h.date)} | 繳費：${h.fee} | 狀態：${h.status}</p>
+                        <p style="font-size: 0.9rem; color: #666; margin: 0;">時間：${getChineseDateTime(h.date)} | 繳費：${h.fee} | 狀態：${h.status}</p>
                         ${actExists ? `<p style="margin: 10px 0 0; font-size: 0.85rem; color: var(--accent-gold); text-align: right; font-weight: bold;">👉 點擊檢視詳情與照片</p>` : ''}
                     </div>`;
             });
@@ -447,8 +480,8 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
                 <button onclick="document.getElementById('act-detail-modal').remove()" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:2rem; color:#999; cursor:pointer;">&times;</button>
                 ${mainImg}${subImgsHtml}
                 <h3 style="color:var(--text-inkblue); margin: 10px 0 8px; font-size: 1.4rem;">${actNameStr}</h3>
-                <p style="font-size:0.95rem; color:#666; margin-bottom:8px;">📍 ${act.location || '無'} <br>🕒 ${formatDateTime(act.date)}</p>
-                <p style="font-size:0.95rem; color:#666; margin-bottom:20px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee || '0'}</span> | 截止: ${formatDateTime(act.deadline)}</p>
+                <p style="font-size:0.95rem; color:#666; margin-bottom:8px;">📍 ${act.location || '無'} <br>🕒 ${getChineseDateTime(act.date)}</p>
+                <p style="font-size:0.95rem; color:#666; margin-bottom:20px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee || '0'}</span> | 截止: ${getChineseDateTime(act.deadline)}</p>
                 <div style="font-size:1rem; line-height:1.7; color:#444; border-top:1px dashed #ddd; padding-top:20px;">${descText}</div>
                 ${formHtml}
             </div>
@@ -532,7 +565,7 @@ window.switchAdminTab = function(tabName) {
 };
 
 function buildAdminDashboardUI(data) {
-    let nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1); let defaultDate = nextYear.toISOString().split('T')[0];
+    let nextYear = new Date(); nextYear.setFullYear(nextYear.getFullYear() + 1); let defaultDate = getStandardDate(nextYear);
     adminNextIds = data.nextIds; editingActivityId = null; currentImageAssets = []; 
 
     let html = `
@@ -553,7 +586,7 @@ function buildAdminDashboardUI(data) {
             html += `
                 <div style="background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 4px solid #d9534f;">
                     <p style="margin:0; font-weight: bold; color: #333;">${m.name} (${m.status})</p>
-                    <p style="margin:5px 0 0; color: #d9534f; font-size: 0.9rem;">異常到期日：${m.expiryDate}</p>
+                    <p style="margin:5px 0 0; color: #d9534f; font-size: 0.9rem;">異常到期日：${getChineseDate(m.expiryDate)}</p>
                 </div>
             `;
         });
@@ -571,7 +604,7 @@ function buildAdminDashboardUI(data) {
                             <h4 style="margin: 0; color: #d9534f; font-size: 1.15rem;">${m.name} <span style="font-size: 0.9rem; color: #999; font-weight: normal;">(${m.memberId})</span></h4>
                             <p style="margin: 4px 0 0; font-size: 0.9rem; color: #555;">原本等級：${m.status}</p>
                         </div>
-                        <span style="font-size:0.85rem; background:#fdf2f2; padding:4px 10px; border-radius:12px; color: #d9534f; font-weight: bold;">已於 ${m.expiryDate} 到期</span>
+                        <span style="font-size:0.85rem; background:#fdf2f2; padding:4px 10px; border-radius:12px; color: #d9534f; font-weight: bold;">已於 ${getChineseDate(m.expiryDate)} 到期</span>
                     </div>
                     
                     <details style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
@@ -601,7 +634,7 @@ function buildAdminDashboardUI(data) {
     if (data.expiring.length === 0) {
         html += `<p style="font-size:0.95rem; color:#666; margin-bottom:1.5rem; text-align: center;">目前無即將到期的會員。</p>`;
     } else {
-        data.expiring.forEach(m => { html += `<div class="data-card data-card-danger" style="border-radius: 12px;"><p style="margin:0;"><strong>${m.name}</strong> (${m.phone}) - [${m.status}] <br><span style="color:#d9534f; font-size: 0.9rem;">到期日: ${m.expiryDate}</span></p></div>`; });
+        data.expiring.forEach(m => { html += `<div class="data-card data-card-danger" style="border-radius: 12px;"><p style="margin:0;"><strong>${m.name}</strong> (${m.phone}) - [${m.status}] <br><span style="color:#d9534f; font-size: 0.9rem;">到期日: ${getChineseDate(m.expiryDate)}</span></p></div>`; });
     }
 
     html += getPremiumHeader('⏳', `準會員審核區 (${data.pending.length} 筆)`);
@@ -609,7 +642,6 @@ function buildAdminDashboardUI(data) {
         html += `<p style="font-size:0.95rem; color:#666; margin-bottom:1.5rem; text-align: center;">目前無待審核的會員。</p>`;
     } else {
         data.pending.forEach(m => {
-            let displayBirth = cleanDateOnly(m.birthday);
             html += `
                 <div class="data-card" id="pending-card-${m.uid}" style="text-align: left; border-top: 5px solid var(--text-inkblue); border-radius: 16px; padding: 1.5rem;">
                     <div style="display: flex; align-items: center; margin-bottom: 12px;">
@@ -617,7 +649,7 @@ function buildAdminDashboardUI(data) {
                         <div><h4 style="margin: 0; font-size: 1.2rem; color: var(--text-inkblue);">${m.name} <span style="font-size: 0.85rem; color: #666; font-weight: normal;">(${m.gender || '未知'})</span></h4><p style="margin: 4px 0 0; font-size: 0.9rem; color: #666;">📞 ${m.phone}</p></div>
                     </div>
                     <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 0.95rem; color: #444; border: 1px dashed #BF9A5A;">
-                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${displayBirth}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${getChineseDate(m.birthday)}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
                     </div>
                     <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：</label>
                     <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')">
@@ -637,8 +669,7 @@ function buildAdminDashboardUI(data) {
     data.active.forEach(m => {
         let displayPhone = m.phone ? String(m.phone).replace(/^'/, '') : '-';
         let compJobStr = [((m.company && m.company !== '-') ? m.company : ''), ((m.jobTitle && m.jobTitle !== '-') ? m.jobTitle : '')].filter(Boolean).join(' / ') || '無公司與職稱資訊';
-        let defaultExtend = m.status === '一般會員' ? '2099-12-31' : m.expiryDate; 
-        let displayBirth = cleanDateOnly(m.birthday);
+        let defaultExtend = m.status === '一般會員' ? '2099-12-31' : getStandardDate(m.expiryDate); 
 
         let cardHtml = `
             <div class="data-card member-item" style="text-align:left; padding: 1.2rem; margin-bottom: 15px; border-left: 5px solid var(--accent-gold); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); background: #fff;">
@@ -650,9 +681,9 @@ function buildAdminDashboardUI(data) {
                 <details style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
                     <summary style="color: var(--text-inkblue); font-weight: bold; font-size: 0.95rem; outline: none; margin-bottom: 10px; background: rgba(191,154,90,0.1); padding: 8px 12px; border-radius: 8px; display: inline-block;">⚙️ 展開詳細資訊與授權管理</summary>
                     <div style="background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px;">
-                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🎂 生日：</strong> ${displayBirth}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🚻 性別：</strong> ${m.gender || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p><p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🎂 生日：</strong> ${getChineseDate(m.birthday)}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🚻 性別：</strong> ${m.gender || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p><p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
                         
-                        <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">純更新到期日 (目前: ${m.expiryDate})</label>
+                        <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">純更新到期日 (目前: ${getChineseDate(m.expiryDate)})</label>
                         <div style="display:flex; gap:10px; margin-bottom:20px;"><input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${defaultExtend}" style="margin:0; flex:2; padding:12px; border-radius: 8px; box-sizing:border-box;"><button class="btn-secondary" style="flex:1; padding:12px; font-size:0.95rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="extendMemberBtn('${m.uid}')">💾 單純延期</button></div>
                         
                         <hr style="border: 0; border-top: 1px dashed #ddd; margin: 15px 0;">
@@ -710,7 +741,6 @@ function buildAdminDashboardUI(data) {
     if (adminActivitiesData.length > 0) {
         adminActivitiesData.forEach(act => {
             let actNameStr = String(act.name || '').trim();
-            // 🌟 防呆：管理員介面也嚴格剔除包含已刪除的活動
             if (actNameStr === '已刪除' || actNameStr.includes('已刪除')) return;
             
             displayedAdminActs++;
@@ -723,7 +753,7 @@ function buildAdminDashboardUI(data) {
                         <h5 style="margin: 0 0 8px; color: var(--text-inkblue); font-size: 1.25rem;">${actNameStr}</h5>
                         <span style="font-size:0.75rem; background:#F8F5EF; color:var(--accent-gold); padding:4px 8px; border-radius:12px; border: 1px solid var(--accent-gold);">${audienceText}</span>
                     </div>
-                    <p style="font-size: 0.95rem; color: #666; margin-bottom: 15px;">📅 ${formatDateTime(act.date)} <br>📍 ${act.location}</p>
+                    <p style="font-size: 0.95rem; color: #666; margin-bottom: 15px;">📅 ${getChineseDateTime(act.date)} <br>📍 ${act.location || '無地點'}</p>
                     <div style="display:flex; flex-direction:column; gap:10px;">
                         <button class="btn-primary" style="background-color: var(--text-inkblue); width:100%; padding:12px; border-radius: 8px; font-size: 1rem;" onclick="openAdminRegistrations('${act.id}', '${act.name}')">👥 查看報名名單與寄信</button>
                         <div style="display:flex; gap:10px;"><button class="btn-secondary" style="flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯活動</button><button class="btn-primary" style="background-color:#d9534f; flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button></div>
@@ -746,8 +776,7 @@ window.changeMemberLevelBtn = async function(targetUid) {
     if (!confirm(`確認將會員等級變更為「${levelInput}」嗎？\n(系統將自動停用舊編號，並核發全新的一組會員編號！)`)) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }) });
-        const result = await response.json();
-        if (result.success) { alert('變更成功！新編號已核發。'); fetchAndRenderAdminData(); }
+        if ((await response.json()).success) { alert('變更成功！新編號已核發。'); fetchAndRenderAdminData(); }
     } catch (error) { alert('系統連線異常'); }
 }
 
@@ -988,7 +1017,7 @@ window.submitActivity = async function() {
     btn.disabled = false;
 };
 
-// 🌟 強制防呆轉型載入編輯功能，確保不再受錯位資料影響
+// 🌟 強制防呆轉型載入編輯功能，加入 try-catch 保護避免崩潰
 window.loadActivityForEdit = function(actId) {
     try {
         let act = adminActivitiesData.find(a => a.id === actId);
@@ -1019,15 +1048,17 @@ window.loadActivityForEdit = function(actId) {
         if (audienceText.includes('T') || audienceText.match(/\d{4}-\d{2}-\d{2}/)) { audienceText = '所有會員'; }
         safeSet('act-target', audienceText);
         
-        safeSet('act-date', formatDateTime(act.date).replace(' ', 'T')); 
-        safeSet('act-deadline', formatDateTime(act.deadline).replace(' ', 'T'));
+        safeSet('act-date', getStandardDateTime(act.date)); 
+        safeSet('act-deadline', getStandardDateTime(act.deadline));
         safeSet('act-location', act.location); 
         safeSet('act-fee', act.fee);
         safeSet('act-capacity', act.capacity); 
         safeSet('act-desc', act.desc);
         
         // 🌟 防呆：強制轉型 String，避免讀到錯位的數字資料時 split() 崩潰
-        currentImageAssets = act.media ? String(act.media).split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() })) : [];
+        let rawMedia = String(act.media || '');
+        if (rawMedia === 'undefined' || rawMedia === 'null') rawMedia = '';
+        currentImageAssets = rawMedia.split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() }));
         
         renderImagePreviews(); 
         
@@ -1037,7 +1068,7 @@ window.loadActivityForEdit = function(actId) {
         }
     } catch(e) {
         console.error("編輯活動載入失敗:", e);
-        alert("載入失敗，請確認資料格式是否正確！");
+        alert("載入失敗，可能遇到舊有的錯位資料，系統已攔截崩潰。");
     }
 };
 
