@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (加入強制防呆轉型，徹底修復舊資料導致的按鈕失效問題，保留所有頂級功能)
+ * 說明：前端核心邏輯 (終極防呆版：修復編輯崩潰、過期活動分流可點擊、隱藏已刪除活動)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -19,7 +19,7 @@ let appStartTime = Date.now();
 let isFirstLoad = true;
 
 // ==========================================
-// 🌟 共用輔助函數
+// 🌟 共用輔助函數 (加入強制轉型防呆)
 // ==========================================
 function getDriveImageUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
@@ -284,7 +284,7 @@ window.submitProfileUpdate = async function() {
 };
 
 // ==========================================
-// 🌟 活動與歷史紀錄 (隱藏過期與已刪除活動)
+// 🌟 活動與歷史紀錄 (過期分流、歷史點擊檢視、防呆轉型)
 // ==========================================
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
@@ -308,19 +308,20 @@ async function fetchMemberActivitiesAndHistory(uid) {
         }
 
         globalActivities.forEach(act => {
-            let actNameStr = String(act.name || '');
+            let actNameStr = String(act.name || '').trim();
+            // 🌟 防呆：嚴格剔除任何包含已刪除的活動
             if (actNameStr === '已刪除' || actNameStr.includes('已刪除')) return;
 
             let isRegistered = historyData.some(h => h.id === act.id);
             let actDate = new Date(act.date);
             let isExpiredAct = !isNaN(actDate.getTime()) && actDate < now;
             
-            // 🌟 剔除過期活動 (只在最新活動隱藏，過往紀錄依舊看得到)
-            if (isExpiredAct && !isRegistered) return;
+            // 🌟 防呆：活動過期就從最新活動列表隱藏
+            if (isExpiredAct) return;
 
             displayedActs++;
-            let imgUrls = act.media ? String(act.media).split(',') : [];
-            let mainImg = (imgUrls.length > 0 && imgUrls[0].trim() !== '') ? `<img src="${getDriveImageUrl(imgUrls[0])}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;">` : '';
+            let imgUrls = act.media ? String(act.media).split(',').filter(u => u.trim() !== '') : [];
+            let mainImg = (imgUrls.length > 0) ? `<img src="${getDriveImageUrl(imgUrls[0])}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;">` : '';
             
             let canRegister = true;
             let btnText = isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名';
@@ -365,10 +366,15 @@ async function fetchMemberActivitiesAndHistory(uid) {
             histHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">目前尚無紀錄。</p>`;
         } else {
             historyData.forEach(h => {
+                // 🌟 歷史紀錄加入點擊事件，讓會員能看見過期活動的詳情與照片
+                let actExists = globalActivities.find(a => a.id === h.id);
+                let clickAction = actExists ? `onclick="openActivityDetailModal('${h.id}', true, true)" style="cursor:pointer;"` : '';
+                
                 histHtml += `
-                    <div class="data-card" style="border-radius: 12px; border-left: 4px solid var(--accent-pink); padding: 1.2rem;">
+                    <div class="data-card" ${clickAction} style="border-radius: 12px; border-left: 4px solid var(--accent-pink); padding: 1.2rem; margin-bottom: 10px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
                         <p style="margin: 0 0 6px; font-size: 1.1rem;"><strong>${h.name}</strong> <span style="font-size: 0.85rem; color:#999; font-weight: normal;">(${h.type})</span></p>
-                        <p style="font-size: 0.9rem; color: #666; margin: 0;">時間：${formatDateTime(h.date)} | 繳費方式：${h.fee}</p>
+                        <p style="font-size: 0.9rem; color: #666; margin: 0;">時間：${formatDateTime(h.date)} | 繳費：${h.fee} | 狀態：${h.status}</p>
+                        ${actExists ? `<p style="margin: 10px 0 0; font-size: 0.85rem; color: var(--accent-gold); text-align: right; font-weight: bold;">👉 點擊檢視詳情與照片</p>` : ''}
                     </div>`;
             });
         }
@@ -376,28 +382,48 @@ async function fetchMemberActivitiesAndHistory(uid) {
     } catch (error) { alert('載入資料失敗，請稍後重試。'); }
 }
 
-window.openActivityDetailModal = function(actId, isRegistered) {
+// 🌟 加入 isPastEvent 判斷，若是從歷史紀錄點開過期活動，不顯示報名/異動按鈕
+window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = false) {
     let act = globalActivities.find(a => a.id === actId);
     if (!act) return;
-    let imgUrls = act.media ? String(act.media).split(',') : [];
-    let mainImg = (imgUrls.length > 0 && imgUrls[0].trim() !== '') ? `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:zoom-in; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">` : '';
+    
+    // 強制轉型，避免舊資料造成 split 崩潰
+    let imgUrls = act.media ? String(act.media).split(',').filter(u => u.trim() !== '') : [];
+    
+    let mainImg = (imgUrls.length > 0) ? `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:zoom-in; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">` : '';
     let subImgsHtml = '';
     if (imgUrls.length > 1) {
         subImgsHtml = `<div style="display:flex; gap:12px; overflow-x:auto; margin-bottom:20px; padding-bottom:10px;">`;
         for (let i = 1; i < imgUrls.length; i++) {
-            if (imgUrls[i].trim() !== '') subImgsHtml += `<img src="${getDriveImageUrl(imgUrls[i])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[i])}')" title="點擊放大" style="width:85px; height:85px; object-fit:cover; border-radius:10px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">`;
+            subImgsHtml += `<img src="${getDriveImageUrl(imgUrls[i])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[i])}')" title="點擊放大" style="width:85px; height:85px; object-fit:cover; border-radius:10px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">`;
         }
         subImgsHtml += `</div>`;
     }
 
+    let actDate = new Date(act.date);
+    let now = new Date();
+    let isExpiredAct = !isNaN(actDate.getTime()) && actDate < now;
+
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
-    let formHtml = isRegistered ? `
+    let formHtml = '';
+
+    // 若活動已過期或是從歷史紀錄點開的舊活動，顯示結束標語
+    if (isExpiredAct || isPastEvent) {
+        formHtml = `
+            <div style="background: #f9f9f9; padding: 15px; border-radius: 12px; margin-top: 20px; text-align:center; border: 1px dashed #ccc;">
+                <h4 style="color: #999; margin: 0;">⏳ 此活動已結束或報名截止</h4>
+            </div>
+        `;
+    } else if (isRegistered) {
+        formHtml = `
             <div style="background: rgba(191,154,90,0.08); padding: 1.5rem; border-radius: 16px; margin-top: 25px; text-align:left;">
                 <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:2px solid #ddd; padding-bottom:10px; font-size: 1.15rem;">📝 提出人數異動申請</h4>
                 <label style="font-size:0.95rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:8px;">欲修改之新參加人數：</label>
                 <input type="number" id="mod-pax" style="${inputStyle}" value="1" min="0">
                 <button class="btn-primary" style="width: 100%; background-color: #d9534f; padding: 12px; border-radius: 8px; font-size: 1.05rem;" onclick="submitModRequest('${act.id}')">送出異動申請</button>
-            </div>` : `
+            </div>`;
+    } else {
+        formHtml = `
             <div style="background: #fff; padding: 1.5rem; border-radius: 16px; border: 1px solid #BF9A5A; margin-top: 25px; text-align:left; box-shadow: 0 4px 15px rgba(191,154,90,0.1);">
                 <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:2px solid #BF9A5A; padding-bottom:10px; font-size: 1.15rem;">報名表單</h4>
                 <p style="font-size:0.9rem; color:#666; margin-bottom:15px; background: #f9f9f9; padding: 10px; border-radius: 8px;">資料自動帶入：<strong>${globalUserData.profile['真實姓名']}</strong> / ${globalUserData.profile['手機號碼'].replace(/^'/, '')}</p>
@@ -407,17 +433,19 @@ window.openActivityDetailModal = function(actId, isRegistered) {
                 <input type="text" id="reg-payment" style="${inputStyle}" placeholder="請輸入繳費方式 (如轉帳後五碼)">
                 <button class="btn-primary" style="width: 100%; padding: 12px; border-radius: 8px; font-size: 1.05rem;" onclick="submitActivityRegistration('${act.id}')">確認送出報名</button>
             </div>`;
+    }
 
-    // 🌟 修正欄位錯位時的詳情顯示，將其強制轉為文字避免崩潰
-    let descText = act.desc ? String(act.desc).replace(/\n/g, '<br>') : '';
+    // 🌟 強制轉型，避免錯位的資料導致渲染崩潰
+    let descText = act.desc ? String(act.desc).replace(/\n/g, '<br>') : '無詳細說明';
+    let actNameStr = String(act.name || '');
 
     document.body.insertAdjacentHTML('beforeend', `
         <div id="act-detail-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) this.remove()">
             <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:2rem 1.5rem; max-height:85vh; overflow-y:auto; position:relative; text-align:left;">
                 <button onclick="document.getElementById('act-detail-modal').remove()" style="position:absolute; top:20px; right:20px; background:none; border:none; font-size:2rem; color:#999; cursor:pointer;">&times;</button>
                 ${mainImg}${subImgsHtml}
-                <h3 style="color:var(--text-inkblue); margin: 10px 0 8px; font-size: 1.4rem;">${act.name || ''}</h3>
-                <p style="font-size:0.95rem; color:#666; margin-bottom:8px;">📍 ${act.location || ''} <br>🕒 ${formatDateTime(act.date)}</p>
+                <h3 style="color:var(--text-inkblue); margin: 10px 0 8px; font-size: 1.4rem;">${actNameStr}</h3>
+                <p style="font-size:0.95rem; color:#666; margin-bottom:8px;">📍 ${act.location || '無'} <br>🕒 ${formatDateTime(act.date)}</p>
                 <p style="font-size:0.95rem; color:#666; margin-bottom:20px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee || '0'}</span> | 截止: ${formatDateTime(act.deadline)}</p>
                 <div style="font-size:1rem; line-height:1.7; color:#444; border-top:1px dashed #ddd; padding-top:20px;">${descText}</div>
                 ${formHtml}
@@ -488,7 +516,10 @@ async function fetchAndRenderAdminData() {
 }
 
 function updatePreviewId(uid) { 
-    document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[document.getElementById(`level-${uid}`).value]; 
+    let selectEl = document.getElementById(`level-${uid}`);
+    if (selectEl && adminNextIds[selectEl.value]) {
+        document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[selectEl.value]; 
+    }
 }
 
 window.switchAdminTab = function(tabName) {
@@ -670,13 +701,15 @@ function buildAdminDashboardUI(data) {
         </div>`;
 
     html += getPremiumHeader('📋', '現有活動管理');
-    if (adminActivitiesData.length === 0) {
-        html += `<p style="font-size:0.95rem; color:#666; text-align: center;">目前尚無活動資料。</p>`;
-    } else {
+    
+    let displayedAdminActs = 0;
+    if (adminActivitiesData.length > 0) {
         adminActivitiesData.forEach(act => {
-            let actNameStr = String(act.name || '');
+            let actNameStr = String(act.name || '').trim();
+            // 🌟 防呆：管理員介面也嚴格剔除包含已刪除的活動
             if (actNameStr === '已刪除' || actNameStr.includes('已刪除')) return;
             
+            displayedAdminActs++;
             let audienceText = act.targetAudience || '所有會員';
             if (String(audienceText).includes('T') || String(audienceText).match(/\d{4}-\d{2}-\d{2}/)) { audienceText = '所有會員'; }
             
@@ -694,6 +727,10 @@ function buildAdminDashboardUI(data) {
                 </div>`;
         });
     }
+    if (displayedAdminActs === 0) {
+        html += `<p style="font-size:0.95rem; color:#666; text-align: center;">目前尚無活動資料。</p>`;
+    }
+    
     html += `</div>`;
     document.getElementById('app-content').innerHTML = html;
 }
@@ -855,7 +892,6 @@ window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElem
 // ==========================================
 // 🌟 管理員：多圖上傳與活動編輯
 // ==========================================
-
 function renderImagePreviews() {
     let area = document.getElementById('upload-preview-area');
     if (currentImageAssets.length === 0) { area.innerHTML = ''; return; }
@@ -948,40 +984,38 @@ window.submitActivity = async function() {
     btn.disabled = false;
 };
 
-// 🌟 加入 Try-Catch 強制防呆與文字轉型
+// 🌟 強制防呆轉型載入編輯功能，確保不再受錯位資料影響
 window.loadActivityForEdit = function(actId) {
-    try {
-        let act = adminActivitiesData.find(a => a.id === actId);
-        if (!act) return;
-        editingActivityId = actId;
-        
-        document.getElementById('act-form-title').innerText = "✏️ 編輯現有活動"; 
-        document.getElementById('submit-act-btn').innerText = "💾 儲存更新"; 
-        document.getElementById('btn-cancel-edit').style.display = "block";
-        
-        document.getElementById('act-name').value = act.name || ''; 
-        document.getElementById('act-type').value = act.type || '實體課程'; 
-        
-        let audienceText = String(act.targetAudience || '所有會員');
-        if (audienceText.includes('T') || audienceText.match(/\d{4}-\d{2}-\d{2}/)) { audienceText = '所有會員'; }
-        document.getElementById('act-target').value = audienceText;
-        
-        document.getElementById('act-date').value = formatDateTime(act.date).replace(' ', 'T'); 
-        document.getElementById('act-deadline').value = formatDateTime(act.deadline).replace(' ', 'T');
-        document.getElementById('act-location').value = act.location || ''; 
-        document.getElementById('act-fee').value = act.fee || '';
-        document.getElementById('act-capacity').value = act.capacity || ''; 
-        document.getElementById('act-desc').value = act.desc || '';
-        
-        // 🌟 防呆：強制轉型 String，避免讀到錯位的數字資料時 split() 崩潰
-        currentImageAssets = act.media ? String(act.media).split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() })) : [];
-        
-        renderImagePreviews(); 
-        document.getElementById('act-form-container').scrollIntoView({ behavior: 'smooth' });
-    } catch (e) {
-        console.error(e);
-        alert('載入活動資料時發生錯誤，可能是舊資料格式遺留問題。');
-    }
+    let act = adminActivitiesData.find(a => a.id === actId);
+    if (!act) return;
+    editingActivityId = actId;
+    
+    document.getElementById('act-form-title').innerText = "✏️ 編輯現有活動"; 
+    document.getElementById('submit-act-btn').innerText = "💾 儲存更新"; 
+    document.getElementById('btn-cancel-edit').style.display = "block";
+    
+    let safeAssign = (id, val) => { let el = document.getElementById(id); if (el) el.value = val; };
+
+    safeAssign('act-name', act.name || ''); 
+    safeAssign('act-type', act.type || '實體課程'); 
+    
+    let audienceText = String(act.targetAudience || '所有會員');
+    if (audienceText.includes('T') || audienceText.match(/\d{4}-\d{2}-\d{2}/)) { audienceText = '所有會員'; }
+    safeAssign('act-target', audienceText);
+    
+    safeAssign('act-date', formatDateTime(act.date).replace(' ', 'T')); 
+    safeAssign('act-deadline', formatDateTime(act.deadline).replace(' ', 'T'));
+    safeAssign('act-location', act.location || ''); 
+    safeAssign('act-fee', act.fee || '');
+    safeAssign('act-capacity', act.capacity || ''); 
+    safeAssign('act-desc', act.desc || '');
+    
+    // 強制轉字串後再進行 split，徹底避免讀到數字時崩潰
+    currentImageAssets = act.media ? String(act.media).split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() })) : [];
+    
+    renderImagePreviews(); 
+    let container = document.getElementById('act-form-container');
+    if (container) container.scrollIntoView({ behavior: 'smooth' });
 };
 
 window.cancelEditActivity = function() {
