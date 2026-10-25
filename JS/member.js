@@ -1,8 +1,59 @@
 /**
  * 檔案：JS/member.js
- * 說明：會員前台業務邏輯 (加入嚴格的 Email 格式驗證與介面提示)
+ * 說明：會員前台業務邏輯 (修復啟動時序問題，全面導入 callApi 提升效能)
  */
 
+// ==========================================
+// 🌟 系統初始化與登入邏輯 (防彈版啟動引擎)
+// ==========================================
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', safeInitialize);
+} else {
+    safeInitialize();
+}
+
+async function safeInitialize() {
+    try {
+        await liff.init({ liffId: LIFF_ID });
+        if (!liff.isLoggedIn()) { 
+            liff.login(); 
+            return; 
+        }
+        currentLiffProfile = await liff.getProfile();
+        await checkUserRoleAndStatus(currentLiffProfile.userId);
+    } catch (error) {
+        console.error("系統啟動失敗:", error);
+        await applyMinimumDelay();
+        document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">系統連線異常，請確認是否在 LINE 內開啟。</p>`;
+    }
+}
+
+async function checkUserRoleAndStatus(uid) {
+    try {
+        const result = await callApi({ action: 'checkUser', uid: uid });
+        await applyMinimumDelay();
+        
+        // 確保強制清除底層卡住的按鈕 (若 UI 結構有殘留)
+        document.querySelectorAll('div, button, span').forEach(el => {
+            if(el.innerText && el.innerText.includes('系統安全連線中')) el.style.display = 'none';
+        });
+
+        if (result.success && result.data.isRegistered) { 
+            globalUserData = result.data; 
+            renderMemberDashboard(result.data); 
+        } else {
+            document.getElementById('app-content').innerHTML = renderRegistrationForm();
+        }
+    } catch (error) { 
+        console.error("檢查身分失敗:", error);
+        await applyMinimumDelay();
+        document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">伺服器連線發生錯誤，請重新整理。</p>`; 
+    }
+}
+
+// ==========================================
+// 🌟 會員前台與註冊邏輯
+// ==========================================
 function renderRegistrationForm() {
     const labelStyle = "font-size: 0.9rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px; text-align: left;";
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #BF9A5A; font-size: 1rem; margin-bottom: 1.2rem; box-sizing: border-box;";
@@ -15,12 +66,7 @@ function renderRegistrationForm() {
                 <div><label style="${labelStyle}">生理性別</label><select id="input-gender" style="${inputStyle}" required><option value="女性">女性</option><option value="男性">男性</option><option value="其他">其他</option></select></div>
                 <div><label style="${labelStyle}">生日 (YYYY-MM-DD)</label><input type="date" id="input-birthday" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">手機號碼</label><input type="tel" id="input-phone" style="${inputStyle}" required></div>
-                
-                <div>
-                    <label style="${labelStyle}">Email <small style="color: #d9534f; font-weight: normal; font-size: 0.8rem;">(必填，接收重要活動通知)</small></label>
-                    <input type="email" id="input-email" style="${inputStyle}" placeholder="例如：example@gmail.com" required>
-                </div>
-                
+                <div><label style="${labelStyle}">Email <small style="color: #d9534f; font-weight: normal; font-size: 0.8rem;">(接收重要活動通知)</small></label><input type="email" id="input-email" style="${inputStyle}" placeholder="例如：example@gmail.com" required></div>
                 <div><label style="${labelStyle}">產業</label><input type="text" id="input-industry" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">公司名稱</label><input type="text" id="input-company" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">職稱</label><input type="text" id="input-jobtitle" style="${inputStyle}" required></div>
@@ -33,48 +79,30 @@ function renderRegistrationForm() {
 
 async function submitRegistration() {
     if (!currentLiffProfile) return alert("無法取得 LINE 授權資料");
-    
     const actData = {
-        realName: document.getElementById('input-name').value.trim(), 
-        gender: document.getElementById('input-gender').value,
-        birthday: document.getElementById('input-birthday').value, 
-        phone: document.getElementById('input-phone').value.trim(),
-        email: document.getElementById('input-email').value.trim(), 
-        industry: document.getElementById('input-industry').value.trim(),
-        company: document.getElementById('input-company').value.trim(), 
-        jobTitle: document.getElementById('input-jobtitle').value.trim(),
+        realName: document.getElementById('input-name').value.trim(), gender: document.getElementById('input-gender').value,
+        birthday: document.getElementById('input-birthday').value, phone: document.getElementById('input-phone').value.trim(),
+        email: document.getElementById('input-email').value.trim(), industry: document.getElementById('input-industry').value.trim(),
+        company: document.getElementById('input-company').value.trim(), jobTitle: document.getElementById('input-jobtitle').value.trim(),
         referrer: document.getElementById('input-referrer').value.trim()
     };
     
     if (!actData.realName || !actData.phone || !actData.email || !actData.industry || !actData.company || !actData.jobTitle || !actData.referrer || !actData.birthday || !actData.gender) {
         return alert("請填寫所有欄位！");
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(actData.email)) {
-        return alert("請填寫完整的 Email 信箱（需包含 @ 與網域，例如 @gmail.com），以確保能順利接收系統的活動通知喔！");
+        return alert("請填寫完整的 Email 信箱（需包含 @ 與網域），以確保能順利接收系統的活動通知喔！");
     }
 
-    const btn = document.getElementById('submit-btn'); 
-    btn.innerText = "資料送出中..."; 
-    btn.disabled = true;
-    
+    const btn = document.getElementById('submit-btn'); btn.innerText = "資料送出中..."; btn.disabled = true;
     try {
         const result = await callApi({ action: 'registerUser', userData: { ...actData, uid: currentLiffProfile.userId, lineName: currentLiffProfile.displayName } });
         if (result.success) {
             let newData = { isAdmin: result.data.isAdmin, status: '準會員', profile: { ...actData, '手機號碼': "'"+actData.phone, '授權到期日': '無', '會員編號': '核發中', '生日': actData.birthday, '性別': actData.gender } };
-            globalUserData = newData; 
-            renderMemberDashboard(newData);
-        } else { 
-            alert("註冊失敗：" + result.message); 
-            btn.innerText = "送出申請"; 
-            btn.disabled = false; 
-        }
-    } catch (error) { 
-        alert("系統連線錯誤"); 
-        btn.innerText = "送出申請"; 
-        btn.disabled = false; 
-    }
+            globalUserData = newData; renderMemberDashboard(newData);
+        } else { alert("註冊失敗：" + result.message); btn.innerText = "送出申請"; btn.disabled = false; }
+    } catch (error) { alert("系統連線錯誤"); btn.innerText = "送出申請"; btn.disabled = false; }
 }
 
 function renderMemberDashboard(userData) {
@@ -115,7 +143,7 @@ function renderMemberDashboard(userData) {
     let displayGender = userData.profile['性別'] || '尚未填寫';
 
     let extraInfoHtml = `
-        <details style="margin-top: 15px; cursor: pointer;" ${(!userData.profile['生日'] || !userData.profile['性別']) ? 'open' : ''}>
+        <details style="margin-top: 15px; cursor: pointer;" ${missingDataWarning !== '' ? 'open' : ''}>
             <summary style="color: var(--accent-gold); font-weight: bold; padding: 5px 0; outline: none; font-size: 1rem;">📂 點擊展開/編輯詳細資料</summary>
             <div style="background: #F8F5EF; padding: 18px; border-radius: 12px; margin-top: 12px; border: 1px dashed var(--accent-gold);">
                 <p style="margin: 0 0 10px; font-size: 0.95rem; color: #444;"><strong>生日：</strong> ${displayBirth}</p>
@@ -177,10 +205,8 @@ window.openEditProfileModal = function() {
                 </select>
                 <label style="${labelStyle}">生日 (YYYY-MM-DD)</label><input type="date" id="edit-birthday" style="${inputStyle}" value="${displayBirth}">
                 <label style="${labelStyle}">手機號碼</label><input type="text" id="edit-phone" style="${inputStyle}" value="${displayPhone}">
-                
                 <label style="${labelStyle}">Email <small style="color: #d9534f; font-weight: normal; font-size: 0.8rem;">(接收重要活動通知)</small></label>
                 <input type="email" id="edit-email" style="${inputStyle}" value="${p['Email']||''}" placeholder="例如：example@gmail.com">
-                
                 <label style="${labelStyle}">產業</label><input type="text" id="edit-industry" style="${inputStyle}" value="${p['產業']||''}">
                 <label style="${labelStyle}">公司名稱</label><input type="text" id="edit-company" style="${inputStyle}" value="${p['公司名稱']||''}">
                 <label style="${labelStyle}">職稱</label><input type="text" id="edit-jobtitle" style="${inputStyle}" value="${p['職稱']||''}">
@@ -193,44 +219,24 @@ window.openEditProfileModal = function() {
 
 window.submitProfileUpdate = async function() {
     const profileData = {
-        realName: document.getElementById('edit-name').value.trim(), 
-        gender: document.getElementById('edit-gender').value,
-        birthday: document.getElementById('edit-birthday').value, 
-        phone: document.getElementById('edit-phone').value.trim(),
-        email: document.getElementById('edit-email').value.trim(), 
-        industry: document.getElementById('edit-industry').value.trim(),
-        company: document.getElementById('edit-company').value.trim(), 
-        jobTitle: document.getElementById('edit-jobtitle').value.trim()
+        realName: document.getElementById('edit-name').value.trim(), gender: document.getElementById('edit-gender').value,
+        birthday: document.getElementById('edit-birthday').value, phone: document.getElementById('edit-phone').value.trim(),
+        email: document.getElementById('edit-email').value.trim(), industry: document.getElementById('edit-industry').value.trim(),
+        company: document.getElementById('edit-company').value.trim(), jobTitle: document.getElementById('edit-jobtitle').value.trim()
     };
-    
     if (!profileData.birthday || !profileData.gender) return alert('生日與性別為必填項目！');
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(profileData.email)) {
         return alert("請填寫完整的 Email 信箱（需包含 @ 與網域，例如 @gmail.com），以確保能順利接收系統的活動通知喔！");
     }
 
-    let btn = document.getElementById('btn-save-profile'); 
-    btn.innerText = '儲存中...'; 
-    btn.disabled = true;
-    
+    let btn = document.getElementById('btn-save-profile'); btn.innerText = '儲存中...'; btn.disabled = true;
     try {
         const result = await callApi({ action: 'updateUserProfile', uid: currentLiffProfile.userId, profileData: profileData });
         if (result.success) { 
-            alert('個人資料更新成功！'); 
-            document.getElementById('edit-profile-modal').remove(); 
-            checkUserRoleAndStatus(currentLiffProfile.userId); 
-        } 
-        else { 
-            alert('更新失敗'); 
-            btn.innerText = '儲存更新'; 
-            btn.disabled = false; 
-        }
-    } catch (error) { 
-        alert('系統連線異常'); 
-        btn.innerText = '儲存更新'; 
-        btn.disabled = false; 
-    }
+            alert('個人資料更新成功！'); document.getElementById('edit-profile-modal').remove(); checkUserRoleAndStatus(currentLiffProfile.userId); 
+        } else { alert('更新失敗'); btn.innerText = '儲存更新'; btn.disabled = false; }
+    } catch (error) { alert('系統連線異常'); btn.innerText = '儲存更新'; btn.disabled = false; }
 };
 
 // ==========================================
@@ -304,9 +310,7 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 </div>`;
         });
 
-        if (displayedActs === 0) {
-            actHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">近期尚無新活動。</p>`;
-        }
+        if (displayedActs === 0) actHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">近期尚無新活動。</p>`;
         document.getElementById('activity-section').innerHTML = actHtml; document.getElementById('activity-section').style.display = 'block';
 
         let histHtml = getPremiumHeader('🕒', '過往歷史紀錄');
@@ -334,9 +338,9 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
     if (!act) return;
     
     let imgUrls = act.media ? String(act.media).split(',').filter(u => u.trim() !== '') : [];
-    
     let mainImg = (imgUrls.length > 0) ? `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:zoom-in; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">` : '';
     let subImgsHtml = '';
+    
     if (imgUrls.length > 1) {
         subImgsHtml = `<div style="display:flex; gap:12px; overflow-x:auto; margin-bottom:20px; padding-bottom:10px;">`;
         for (let i = 1; i < imgUrls.length; i++) {
@@ -353,11 +357,7 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
     let formHtml = '';
 
     if (isExpiredAct || isPastEvent) {
-        formHtml = `
-            <div style="background: #f9f9f9; padding: 15px; border-radius: 12px; margin-top: 20px; text-align:center; border: 1px dashed #ccc;">
-                <h4 style="color: #999; margin: 0;">⏳ 此活動已結束或報名截止</h4>
-            </div>
-        `;
+        formHtml = `<div style="background: #f9f9f9; padding: 15px; border-radius: 12px; margin-top: 20px; text-align:center; border: 1px dashed #ccc;"><h4 style="color: #999; margin: 0;">⏳ 此活動已結束或報名截止</h4></div>`;
     } else if (isRegistered) {
         formHtml = `
             <div style="background: rgba(191,154,90,0.08); padding: 1.5rem; border-radius: 16px; margin-top: 25px; text-align:left;">
@@ -398,17 +398,12 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
 };
 
 async function submitActivityRegistration(activityId) {
-    const pax = document.getElementById('reg-pax').value; 
-    const payment = document.getElementById('reg-payment').value.trim();
+    const pax = document.getElementById('reg-pax').value; const payment = document.getElementById('reg-payment').value.trim();
     if (!pax || pax < 1 || !payment) return alert('資料填寫不完整');
     if (!confirm(`確認送出報名？\n人數：${pax}\n繳費方式：${payment}`)) return;
     try {
         const result = await callApi({ action: 'registerActivityAdvanced', uid: currentLiffProfile.userId, activityId: activityId, participants: pax, payment: payment });
-        if (result.success) { 
-            alert('報名成功！'); 
-            document.getElementById('act-detail-modal').remove(); 
-            fetchMemberActivitiesAndHistory(currentLiffProfile.userId); 
-        } else alert('報名失敗');
+        if (result.success) { alert('報名成功！'); document.getElementById('act-detail-modal').remove(); fetchMemberActivitiesAndHistory(currentLiffProfile.userId); } else alert('報名失敗');
     } catch (error) { alert('系統連線異常'); }
 }
 
@@ -418,9 +413,6 @@ async function submitModRequest(activityId) {
     if (!confirm('確認提出異動申請？')) return;
     try {
         const result = await callApi({ action: 'submitModRequest', uid: currentLiffProfile.userId, activityId: activityId, newPax: newPax });
-        if (result.success) { 
-            alert('申請已送出，請靜候管理員處理。'); 
-            document.getElementById('act-detail-modal').remove(); 
-        } else alert('申請失敗');
+        if (result.success) { alert('申請已送出，請靜候管理員處理。'); document.getElementById('act-detail-modal').remove(); } else alert('申請失敗');
     } catch (error) { alert('系統連線異常'); }
 }
