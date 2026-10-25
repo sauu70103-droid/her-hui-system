@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (完整版 - 恢復會員基本資料顯示、支援多圖活動詳情彈窗、進階報名與異動、管理員雙分頁)
+ * 說明：前端核心邏輯 (加入載入畫面最低顯示 5 秒機制)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -11,9 +11,24 @@ const APPROVED_ROLES = ['一般會員', '她薈會員', '創始會員'];
 let adminNextIds = {}; 
 let globalUserData = null; 
 let isAdminVerified = false; 
-let globalActivities = []; // 暫存所有活動供彈窗使用
-let imageFileBuffers = []; // 暫存多張圖片
-let uploadedImageUrls = []; // 成功上傳後的網址
+let globalActivities = []; 
+let imageFileBuffers = []; 
+let uploadedImageUrls = []; 
+
+// 🌟 記錄系統啟動時間與標記
+let appStartTime = Date.now();
+let isFirstLoad = true;
+
+// 🌟 確保畫面至少顯示 5 秒的異步函式
+async function applyMinimumDelay() {
+    if (!isFirstLoad) return;
+    const elapsed = Date.now() - appStartTime;
+    const remaining = 5000 - elapsed;
+    if (remaining > 0) {
+        await new Promise(resolve => setTimeout(resolve, remaining));
+    }
+    isFirstLoad = false;
+}
 
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
 
@@ -24,6 +39,7 @@ async function initializeApp() {
         currentLiffProfile = await liff.getProfile();
         await checkUserRoleAndStatus(currentLiffProfile.userId);
     } catch (error) {
+        await applyMinimumDelay();
         document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">系統連線異常，請確認是否在 LINE 內開啟。</p>`;
     }
 }
@@ -36,13 +52,19 @@ async function checkUserRoleAndStatus(uid) {
         });
         const result = await response.json();
         
+        // 🌟 在覆寫畫面之前，確保已經過至少 5 秒
+        await applyMinimumDelay();
+        
         if (result.success && result.data.isRegistered) {
             globalUserData = result.data; 
             renderMemberDashboard(result.data);
         } else {
             document.getElementById('app-content').innerHTML = renderRegistrationForm();
         }
-    } catch (error) { document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center;">伺服器連線發生錯誤。</p>`; }
+    } catch (error) { 
+        await applyMinimumDelay();
+        document.getElementById('app-content').innerHTML = `<p style="color:red; text-align:center;">伺服器連線發生錯誤。</p>`; 
+    }
 }
 
 function renderRegistrationForm() {
@@ -128,12 +150,10 @@ function renderMemberDashboard(userData) {
     }
 
     let profileHtml = '';
-    // 渲染會員實體卡片
     if (typeof window.CardManager !== 'undefined') {
         profileHtml += window.CardManager.getDashboardCardHtml(userData.status, realNameDisplay, memberIdDisplay);
     }
 
-    // 🌟 核心修復：將會員完整詳細資料區塊加回來
     profileHtml += `
         <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
             <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
@@ -216,10 +236,25 @@ async function fetchMemberActivitiesAndHistory(uid) {
         document.getElementById('activity-section').innerHTML = actHtml;
         document.getElementById('activity-section').style.display = 'block';
 
+        let histHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">🕒 過往歷史紀錄</h4>`;
+        if (historyData.length === 0) {
+            histHtml += `<p style="font-size:0.9rem; color:#666;">目前尚無紀錄。</p>`;
+        } else {
+            historyData.forEach(h => {
+                histHtml += `
+                    <div class="data-card" style="border-left-color: var(--accent-pink); padding: 1rem;">
+                        <p style="margin-bottom: 4px;"><strong>${h.name}</strong> <span style="font-size: 0.8rem; color:#999;">(${h.type})</span></p>
+                        <p style="font-size: 0.85rem; color: #666;">報名時間：${h.date} | 金額：${h.fee}</p>
+                    </div>
+                `;
+            });
+        }
+        document.getElementById('history-section').innerHTML = histHtml;
+        document.getElementById('history-section').style.display = 'block';
+
     } catch (error) { alert('載入資料失敗，請稍後重試。'); }
 }
 
-// 點開來的活動詳情與進階報名/異動表單
 window.openActivityDetailModal = function(actId, isRegistered) {
     let act = globalActivities.find(a => a.id === actId);
     if(!act) return;
@@ -242,7 +277,7 @@ window.openActivityDetailModal = function(actId, isRegistered) {
         formHtml = `
             <div style="background: rgba(191,154,90,0.1); padding: 15px; border-radius: 12px; margin-top: 20px; text-align:left;">
                 <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:1px solid #ddd; padding-bottom:8px;">📝 提出人數異動申請</h4>
-                <p style="font-size:0.8rem; color:#666;">您已報名此活動。若需修改參加人數，請填寫下方新的人數並送出申請，管理員將手動為您審核並處理退補費用。</p>
+                <p style="font-size:0.8rem; color:#666;">您已報名此活動。若需修改參加人數，請填寫下方新的人數並送出申請，管理員將為您審核並處理退補費用。</p>
                 <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">欲修改之新參加人數：</label>
                 <input type="number" id="mod-pax" style="${inputStyle}" value="1" min="0">
                 <button class="btn-primary" style="width: 100%; background-color: #d9534f;" onclick="submitModRequest('${act.id}')">送出異動申請</button>
@@ -323,7 +358,6 @@ async function submitModRequest(activityId) {
     } catch (error) { alert('系統連線異常'); }
 }
 
-/* ================= 管理員專區邏輯 ================= */
 function showAdminLoginModal() {
     if (document.getElementById('admin-modal')) return;
     document.body.insertAdjacentHTML('beforeend', `
@@ -403,7 +437,6 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
-    // ================== 會員管理區塊 ==================
     html += `<div id="admin-member-sec">`;
     html += `<h4 style="color: #d9534f; margin-bottom: 10px;">⚠️ 即將到期會員提醒 (${data.expiring.length} 筆)</h4>`;
     if (data.expiring.length === 0) html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
@@ -469,7 +502,6 @@ function buildAdminDashboardUI(data) {
              <div id="member-list-general">${generalList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
              </div>`;
 
-    // ================== 活動管理區塊 ==================
     html += `<div id="admin-act-sec" style="display:none;">`;
 
     if(data.modRequests && data.modRequests.length > 0) {
@@ -502,7 +534,6 @@ function buildAdminDashboardUI(data) {
             <label style="${labelStyle}">活動日期時間</label>
             <input type="datetime-local" id="act-date" class="admin-search-bar">
             
-            <!-- 多圖上傳區塊 -->
             <div style="background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px dashed #BF9A5A; margin-bottom: 15px;">
                 <label style="font-size: 0.85rem; font-weight:bold; color:var(--accent-gold); display:block; margin-bottom:10px;">📷 上傳活動媒體 (最多10張，第一張為主圖)</label>
                 <p style="font-size: 0.75rem; color: #666; margin-top:-5px; margin-bottom:10px;">⚠️ 必須先填寫上方的「活動名稱」與「日期」才能上傳！</p>
