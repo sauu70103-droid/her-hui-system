@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (精確回報管理員專區資料讀取錯誤)
+ * 說明：前端核心邏輯 (修復 Drive 圖片破圖、日期格式化與點擊放大全螢幕檢視)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -19,6 +19,48 @@ let editingActivityId = null;
 
 let appStartTime = Date.now();
 let isFirstLoad = true;
+
+// 🌟 輔助：格式化 Google Drive 圖片網址 (解決破圖問題)
+function getDriveImageUrl(rawUrl) {
+    if (!rawUrl) return '';
+    let url = rawUrl.trim();
+    if (url.includes('drive.google.com')) {
+        let match = url.match(/id=([^&]+)/) || url.match(/\/d\/([^/]+)/);
+        if (match && match[1]) {
+            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+        }
+    }
+    return url;
+}
+
+// 🌟 輔助：格式化日期時間顯示 (去除 .000Z)
+function formatDateTime(dateString) {
+    if (!dateString) return '';
+    try {
+        let d = new Date(dateString);
+        if (isNaN(d.getTime())) return dateString.replace('T', ' ').substring(0, 16);
+        let year = d.getFullYear();
+        let month = String(d.getMonth() + 1).padStart(2, '0');
+        let day = String(d.getDate()).padStart(2, '0');
+        let hours = String(d.getHours()).padStart(2, '0');
+        let mins = String(d.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${mins}`;
+    } catch (e) {
+        return dateString.replace('T', ' ').substring(0, 16);
+    }
+}
+
+// 🌟 全螢幕圖片檢視器
+window.viewFullscreenImage = function(url) {
+    let overlay = document.createElement('div');
+    overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:99999; display:flex; justify-content:center; align-items:center; cursor:zoom-out;";
+    overlay.onclick = () => overlay.remove();
+    let img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = "max-width:95%; max-height:95%; object-fit:contain; border-radius:8px; box-shadow:0 10px 30px rgba(0,0,0,0.5);";
+    overlay.appendChild(img);
+    document.body.appendChild(overlay);
+};
 
 async function applyMinimumDelay() {
     if (!isFirstLoad) return;
@@ -211,9 +253,13 @@ async function fetchMemberActivitiesAndHistory(uid) {
         } else {
             globalActivities.forEach(act => {
                 let imgUrls = act.media ? act.media.split(',') : [];
-                let mainImg = imgUrls.length > 0 ? `<img src="${imgUrls[0]}" style="width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">` : '';
-                let formattedDate = act.date.replace('T', ' ');
+                let mainImg = '';
+                if (imgUrls.length > 0 && imgUrls[0].trim() !== '') {
+                    let displayUrl = getDriveImageUrl(imgUrls[0]);
+                    mainImg = `<img src="${displayUrl}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">`;
+                }
                 
+                let formattedDate = formatDateTime(act.date);
                 let isRegistered = historyData.some(h => h.id === act.id);
                 let btnText = isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名';
                 let btnColor = isRegistered ? 'background-color: var(--accent-gold);' : '';
@@ -239,7 +285,7 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 histHtml += `
                     <div class="data-card" style="border-left-color: var(--accent-pink); padding: 1rem;">
                         <p style="margin-bottom: 4px;"><strong>${h.name}</strong> <span style="font-size: 0.8rem; color:#999;">(${h.type})</span></p>
-                        <p style="font-size: 0.85rem; color: #666;">報名時間：${h.date} | 金額：${h.fee}</p>
+                        <p style="font-size: 0.85rem; color: #666;">報名時間：${formatDateTime(h.date)} | 金額：${h.fee}</p>
                     </div>
                 `;
             });
@@ -255,12 +301,23 @@ window.openActivityDetailModal = function(actId, isRegistered) {
     if(!act) return;
 
     let imgUrls = act.media ? act.media.split(',') : [];
-    let mainImg = imgUrls.length > 0 ? `<img src="${imgUrls[0]}" style="width:100%; border-radius:12px; margin-bottom:10px;">` : '';
+    let mainImg = '';
+    
+    // 🌟 主圖渲染與點擊放大
+    if (imgUrls.length > 0 && imgUrls[0].trim() !== '') {
+        let displayUrl = getDriveImageUrl(imgUrls[0]);
+        mainImg = `<img src="${displayUrl}" onclick="viewFullscreenImage('${displayUrl}')" title="點擊放大" style="width:100%; border-radius:12px; margin-bottom:10px; cursor:zoom-in; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">`;
+    }
+    
+    // 🌟 子圖渲染與點擊放大
     let subImgsHtml = '';
     if(imgUrls.length > 1) {
         subImgsHtml = `<div style="display:flex; gap:10px; overflow-x:auto; margin-bottom:15px; padding-bottom:10px;">`;
         for(let i=1; i<imgUrls.length; i++) {
-            subImgsHtml += `<img src="${imgUrls[i]}" style="width:80px; height:80px; object-fit:cover; border-radius:8px; flex-shrink:0;">`;
+            if (imgUrls[i].trim() !== '') {
+                let subUrl = getDriveImageUrl(imgUrls[i]);
+                subImgsHtml += `<img src="${subUrl}" onclick="viewFullscreenImage('${subUrl}')" title="點擊放大" style="width:80px; height:80px; object-fit:cover; border-radius:8px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee;">`;
+            }
         }
         subImgsHtml += `</div>`;
     }
@@ -299,8 +356,8 @@ window.openActivityDetailModal = function(actId, isRegistered) {
                 ${mainImg}
                 ${subImgsHtml}
                 <h3 style="color:var(--text-inkblue); margin: 10px 0 5px;">${act.name}</h3>
-                <p style="font-size:0.9rem; color:#666; margin-bottom:5px;">📍 ${act.location} | 🕒 ${act.date.replace('T', ' ')}</p>
-                <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee}</span> | 截止: ${act.deadline.replace('T', ' ')}</p>
+                <p style="font-size:0.9rem; color:#666; margin-bottom:5px;">📍 ${act.location} | 🕒 ${formatDateTime(act.date)}</p>
+                <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">💵 費用: <span style="color:var(--accent-gold); font-weight:bold;">${act.fee}</span> | 截止: ${formatDateTime(act.deadline)}</p>
                 <div style="font-size:0.95rem; line-height:1.6; color:#444; border-top:1px dashed #ddd; padding-top:15px;">
                     ${act.desc.replace(/\n/g, '<br>')}
                 </div>
@@ -388,7 +445,6 @@ async function verifyAdminPassword() {
     } catch (error) { alert('系統連線異常'); btn.innerText = "確認進入"; }
 }
 
-// 🌟 核心修復：精確顯示出讀取失敗的後端錯誤訊息
 async function fetchAndRenderAdminData() {
     const contentArea = document.getElementById('app-content');
     contentArea.innerHTML = `<div class="loading-text">資料讀取中，請稍候...</div>`;
@@ -402,7 +458,6 @@ async function fetchAndRenderAdminData() {
             adminActivitiesData = result.data.activities || [];
             buildAdminDashboardUI(result.data);
         } else {
-            // 這裡將精確顯示後端拋出的錯誤
             contentArea.innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">讀取資料失敗：<br>${result.message || '未知錯誤'}</p>`;
         }
     } catch (error) { 
@@ -582,7 +637,7 @@ function buildAdminDashboardUI(data) {
             html += `
                 <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left;" id="admin-act-${act.id}">
                     <h5 style="margin: 0 0 5px; color: var(--text-inkblue); font-size:1.1rem;">${act.name}</h5>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">📅 ${act.date.replace('T', ' ')}</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">📅 ${formatDateTime(act.date)}</p>
                     <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">📍 ${act.location} | 👥 限額: ${act.capacity}</p>
                     <div style="display:flex; gap:10px;">
                         <button class="btn-secondary" style="flex:1; padding:8px; font-size:0.85rem;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯內容</button>
@@ -697,8 +752,8 @@ window.loadActivityForEdit = function(actId) {
 
     document.getElementById('act-name').value = act.name;
     document.getElementById('act-type').value = act.type;
-    document.getElementById('act-date').value = act.date.substring(0, 16); 
-    document.getElementById('act-deadline').value = act.deadline.substring(0, 16);
+    document.getElementById('act-date').value = formatDateTime(act.date).replace(' ', 'T'); 
+    document.getElementById('act-deadline').value = formatDateTime(act.deadline).replace(' ', 'T');
     document.getElementById('act-location').value = act.location;
     document.getElementById('act-fee').value = act.fee;
     document.getElementById('act-capacity').value = act.capacity;
