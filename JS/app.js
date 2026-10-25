@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (加入載入畫面最低顯示 5 秒機制)
+ * 說明：前端核心邏輯 (多圖上傳排序與刪除、活動管理與編輯功能完整版)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -12,21 +12,20 @@ let adminNextIds = {};
 let globalUserData = null; 
 let isAdminVerified = false; 
 let globalActivities = []; 
-let imageFileBuffers = []; 
-let uploadedImageUrls = []; 
+let adminActivitiesData = []; 
 
-// 🌟 記錄系統啟動時間與標記
+// 🌟 圖片管理與編輯狀態
+let currentImageAssets = []; // 儲存 { type: 'url', url: '...' } 或 { type: 'file', base64: '...', mimeType: '...', previewUrl: '...' }
+let editingActivityId = null; // null 表示新增，有值表示編輯中
+
 let appStartTime = Date.now();
 let isFirstLoad = true;
 
-// 🌟 確保畫面至少顯示 5 秒的異步函式
 async function applyMinimumDelay() {
     if (!isFirstLoad) return;
     const elapsed = Date.now() - appStartTime;
     const remaining = 5000 - elapsed;
-    if (remaining > 0) {
-        await new Promise(resolve => setTimeout(resolve, remaining));
-    }
+    if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
     isFirstLoad = false;
 }
 
@@ -51,10 +50,7 @@ async function checkUserRoleAndStatus(uid) {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        
-        // 🌟 在覆寫畫面之前，確保已經過至少 5 秒
         await applyMinimumDelay();
-        
         if (result.success && result.data.isRegistered) {
             globalUserData = result.data; 
             renderMemberDashboard(result.data);
@@ -358,6 +354,7 @@ async function submitModRequest(activityId) {
     } catch (error) { alert('系統連線異常'); }
 }
 
+/* ================= 管理員專區邏輯 ================= */
 function showAdminLoginModal() {
     if (document.getElementById('admin-modal')) return;
     document.body.insertAdjacentHTML('beforeend', `
@@ -403,8 +400,10 @@ async function fetchAndRenderAdminData() {
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
-        if (result.success) buildAdminDashboardUI(result.data);
-        else contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取資料失敗。</p>`;
+        if (result.success) {
+            adminActivitiesData = result.data.activities || [];
+            buildAdminDashboardUI(result.data);
+        } else contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取資料失敗。</p>`;
     } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; }
 }
 
@@ -427,6 +426,8 @@ function buildAdminDashboardUI(data) {
     const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
     
     adminNextIds = data.nextIds;
+    editingActivityId = null; // 重置編輯狀態
+    currentImageAssets = []; // 清空預覽
 
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
 
@@ -437,6 +438,7 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
+    // ================== 會員管理區塊 ==================
     html += `<div id="admin-member-sec">`;
     html += `<h4 style="color: #d9534f; margin-bottom: 10px;">⚠️ 即將到期會員提醒 (${data.expiring.length} 筆)</h4>`;
     if (data.expiring.length === 0) html += `<p style="font-size:0.9rem; color:#666; margin-bottom:1rem;">目前無即將到期的會員。</p>`;
@@ -502,8 +504,10 @@ function buildAdminDashboardUI(data) {
              <div id="member-list-general">${generalList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
              </div>`;
 
+    // ================== 活動管理區塊 ==================
     html += `<div id="admin-act-sec" style="display:none;">`;
 
+    // 異動審核區
     if(data.modRequests && data.modRequests.length > 0) {
         html += `<h4 style="color: #d9534f; margin: 20px 0 10px;">⚠️ 報名異動審核區 (${data.modRequests.length} 筆)</h4>`;
         data.modRequests.forEach(req => {
@@ -519,9 +523,10 @@ function buildAdminDashboardUI(data) {
         });
     }
 
+    // 🌟 新增/編輯 活動表單
     html += `
-        <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
-        <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;">
+        <h4 id="act-form-title" style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
+        <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;" id="act-form-container">
             <label style="${labelStyle}">活動/通告名稱</label>
             <input type="text" id="act-name" class="admin-search-bar" placeholder="請輸入活動名稱" required>
             
@@ -534,12 +539,17 @@ function buildAdminDashboardUI(data) {
             <label style="${labelStyle}">活動日期時間</label>
             <input type="datetime-local" id="act-date" class="admin-search-bar">
             
+            <!-- 🌟 進階多圖上傳區塊 (主圖標籤、刪除、移動排序) -->
             <div style="background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px dashed #BF9A5A; margin-bottom: 15px;">
-                <label style="font-size: 0.85rem; font-weight:bold; color:var(--accent-gold); display:block; margin-bottom:10px;">📷 上傳活動媒體 (最多10張，第一張為主圖)</label>
-                <p style="font-size: 0.75rem; color: #666; margin-top:-5px; margin-bottom:10px;">⚠️ 必須先填寫上方的「活動名稱」與「日期」才能上傳！</p>
+                <label style="font-size: 0.85rem; font-weight:bold; color:var(--accent-gold); display:block; margin-bottom:10px;">📷 上傳活動媒體 (最多10張)</label>
+                <p style="font-size: 0.75rem; color: #666; margin-top:-5px; margin-bottom:10px;">⚠️ 第一張固定為「主圖」。可點選左右箭頭排序或點 X 刪除。</p>
                 <input type="file" id="act-media" class="admin-search-bar" accept="image/*" multiple onchange="handleMultipleFileUpload(event)">
-                <div id="upload-preview-area" style="display:flex; gap:10px; overflow-x:auto; margin-bottom:10px;"></div>
-                <button id="btn-upload-images" class="btn-secondary" style="width:100%; margin-bottom:5px;" onclick="uploadImagesToServer()">確認上傳照片</button>
+                
+                <div id="upload-preview-area" style="display:flex; gap:12px; overflow-x:auto; margin-bottom:15px; padding:10px 5px; min-height:80px; align-items:center;">
+                    <p style="font-size:0.8rem; color:#999; width:100%; text-align:center;">尚無選擇圖片</p>
+                </div>
+                
+                <button id="btn-upload-images" class="btn-secondary" style="width:100%;" onclick="uploadImagesToServer()">確認上傳並鎖定照片</button>
             </div>
 
             <label style="${labelStyle}">報名截止時間</label>
@@ -555,104 +565,229 @@ function buildAdminDashboardUI(data) {
             <input type="number" id="act-capacity" class="admin-search-bar" placeholder="設定名額上限">
             
             <label style="${labelStyle}">活動詳細簡介</label>
-            <textarea id="act-desc" class="admin-search-bar" placeholder="在此輸入活動詳情，這會顯示在點開的視窗中..." rows="6"></textarea>
+            <textarea id="act-desc" class="admin-search-bar" placeholder="在此輸入活動詳情..." rows="6"></textarea>
             
-            <button class="btn-primary" id="submit-act-btn" style="width: 100%; margin-top: 15px;" onclick="submitActivity()">發布活動</button>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button id="btn-cancel-edit" class="btn-secondary" style="background-color:#999; flex:1; display:none;" onclick="cancelEditActivity()">取消編輯</button>
+                <button class="btn-primary" id="submit-act-btn" style="flex:2;" onclick="submitActivity()">發布活動</button>
+            </div>
         </div>
-    </div>`;
+    `;
 
+    // 🌟 現有活動管理列表
+    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">📋 現有活動管理</h4>`;
+    if(adminActivitiesData.length === 0) {
+        html += `<p style="font-size:0.9rem; color:#666;">目前尚無活動資料。</p>`;
+    } else {
+        adminActivitiesData.forEach(act => {
+            html += `
+                <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left;" id="admin-act-${act.id}">
+                    <h5 style="margin: 0 0 5px; color: var(--text-inkblue); font-size:1.1rem;">${act.name}</h5>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">📅 ${act.date.replace('T', ' ')}</p>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">📍 ${act.location} | 👥 限額: ${act.capacity}</p>
+                    <div style="display:flex; gap:10px;">
+                        <button class="btn-secondary" style="flex:1; padding:8px; font-size:0.85rem;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯內容</button>
+                        <button class="btn-primary" style="background-color:#d9534f; flex:1; padding:8px; font-size:0.85rem;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button>
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    html += `</div>`; // 結束活動區塊
     document.getElementById('app-content').innerHTML = html;
 }
 
-function filterMembers() {
-    const input = document.getElementById('member-search').value.toLowerCase();
-    document.querySelectorAll('.member-item').forEach(item => {
-        item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none";
+// ================== 🌟 進階圖片預覽與狀態管理 ==================
+function renderImagePreviews() {
+    let area = document.getElementById('upload-preview-area');
+    if (currentImageAssets.length === 0) {
+        area.innerHTML = `<p style="font-size:0.8rem; color:#999; width:100%; text-align:center;">尚無選擇圖片</p>`;
+        return;
+    }
+    let html = '';
+    currentImageAssets.forEach((asset, idx) => {
+        let isMain = idx === 0;
+        let imgSrc = asset.type === 'url' ? asset.url : asset.previewUrl;
+        let borderColor = isMain ? 'var(--accent-gold)' : '#ddd';
+        let borderWidth = isMain ? '3px' : '1px';
+        
+        html += `
+            <div style="position:relative; display:inline-block; width:75px; flex-shrink:0;">
+                <img src="${imgSrc}" style="width:75px; height:75px; object-fit:cover; border-radius:8px; border:${borderWidth} solid ${borderColor}; box-sizing:border-box;">
+                
+                ${isMain ? `<span style="position:absolute; top:-8px; left:-5px; background:var(--accent-gold); color:white; font-size:0.65rem; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.2);">主圖</span>` : ''}
+                
+                <button onclick="removeImage(${idx})" style="position:absolute; top:-8px; right:-5px; background:#d9534f; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:0.6rem; font-weight:bold; cursor:pointer; line-height:1; box-shadow:0 2px 4px rgba(0,0,0,0.2);">X</button>
+                
+                <div style="display:flex; justify-content:space-between; margin-top:5px; padding:0 2px;">
+                    <button onclick="moveImage(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1rem; padding:0;">⬅️</button>
+                    <button onclick="moveImage(${idx}, 1)" ${idx === currentImageAssets.length - 1 ? 'disabled style="opacity:0.3;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1rem; padding:0;">➡️</button>
+                </div>
+            </div>
+        `;
     });
+    area.innerHTML = html;
 }
+
+window.removeImage = function(index) {
+    currentImageAssets.splice(index, 1);
+    renderImagePreviews();
+};
+
+window.moveImage = function(index, direction) {
+    if (direction === -1 && index > 0) {
+        [currentImageAssets[index], currentImageAssets[index - 1]] = [currentImageAssets[index - 1], currentImageAssets[index]];
+    } else if (direction === 1 && index < currentImageAssets.length - 1) {
+        [currentImageAssets[index], currentImageAssets[index + 1]] = [currentImageAssets[index + 1], currentImageAssets[index]];
+    }
+    renderImagePreviews();
+};
 
 function handleMultipleFileUpload(event) {
     let files = event.target.files;
-    if (files.length > 10) {
-        alert('最多只能選擇 10 張照片！');
+    if (currentImageAssets.length + files.length > 10) {
+        alert('總共最多只能上傳 10 張照片！');
         event.target.value = ''; return;
     }
-    imageFileBuffers = [];
-    let previewHtml = '';
-
-    Array.from(files).forEach((file, index) => {
+    Array.from(files).forEach(file => {
         let reader = new FileReader();
         reader.onload = function(e) {
-            imageFileBuffers.push({ base64: e.target.result.split(',')[1], mimeType: file.type });
-            previewHtml += `<img src="${e.target.result}" style="width:60px; height:60px; object-fit:cover; border-radius:6px; border:1px solid #ddd; flex-shrink:0;">`;
-            document.getElementById('upload-preview-area').innerHTML = previewHtml;
+            currentImageAssets.push({ type: 'file', base64: e.target.result.split(',')[1], mimeType: file.type, previewUrl: e.target.result });
+            renderImagePreviews();
         };
         reader.readAsDataURL(file);
     });
+    event.target.value = ''; // 讓同一檔案可重複選
 }
 
 async function uploadImagesToServer() {
     let actName = document.getElementById('act-name').value.trim();
     let actDate = document.getElementById('act-date').value;
-    if (!actName || !actDate) return alert('請先填寫「活動名稱」與「活動日期」再上傳照片！');
-    if (imageFileBuffers.length === 0) return alert('請先選擇照片檔案！');
+    if (!actName || !actDate) return alert('請先填寫「活動名稱」與「活動日期」再進行圖片鎖定上傳！');
+    
+    // 過濾出尚未上傳的圖片
+    let filesToUpload = currentImageAssets.filter(asset => asset.type === 'file');
+    if (filesToUpload.length === 0) return alert('沒有偵測到新的照片需要上傳。');
 
     let btn = document.getElementById('btn-upload-images');
+    let originalText = btn.innerText;
     btn.innerText = "照片上傳中，請稍候..."; btn.disabled = true;
 
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'uploadImages', imagesData: imageFileBuffers, activityName: actName, dateStr: actDate }),
+            method: 'POST', body: JSON.stringify({ action: 'uploadImages', imagesData: filesToUpload, activityName: actName, dateStr: actDate }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
         if (result.success) {
-            uploadedImageUrls = result.urls;
-            alert('照片上傳成功！您可以繼續填寫下方資訊並發布活動。');
-            btn.innerText = "上傳完成 ✅";
-            btn.style.backgroundColor = "#4CAF50";
-        } else {
-            alert('上傳失敗：' + result.message);
-            btn.innerText = "確認上傳照片"; btn.disabled = false;
-        }
-    } catch (error) {
-        alert('連線異常，請確認已在 GAS 執行 forceDrivePermission() 授權');
-        btn.innerText = "確認上傳照片"; btn.disabled = false;
-    }
+            // 將成功上傳的檔案狀態轉為 url
+            let urlIdx = 0;
+            currentImageAssets.forEach(asset => {
+                if(asset.type === 'file') { asset.type = 'url'; asset.url = result.urls[urlIdx++]; delete asset.base64; delete asset.previewUrl; }
+            });
+            alert('照片上傳並鎖定成功！');
+            btn.innerText = "已鎖定上傳 ✅"; btn.style.backgroundColor = "#4CAF50";
+            setTimeout(() => { btn.innerText = "確認上傳並鎖定照片"; btn.style.backgroundColor = ""; btn.disabled = false; }, 3000);
+        } else { alert('上傳失敗：' + result.message); btn.innerText = originalText; btn.disabled = false; }
+    } catch (error) { alert('連線異常，圖片無法上傳'); btn.innerText = originalText; btn.disabled = false; }
 }
+
+// ================== 🌟 編輯與發布活動 ==================
+window.loadActivityForEdit = function(actId) {
+    let act = adminActivitiesData.find(a => a.id === actId);
+    if(!act) return;
+
+    editingActivityId = actId;
+    document.getElementById('act-form-title').innerText = "✏️ 編輯現有活動";
+    document.getElementById('submit-act-btn').innerText = "💾 儲存更新";
+    document.getElementById('btn-cancel-edit').style.display = "block";
+
+    document.getElementById('act-name').value = act.name;
+    document.getElementById('act-type').value = act.type;
+    document.getElementById('act-date').value = act.date.substring(0, 16); 
+    document.getElementById('act-deadline').value = act.deadline.substring(0, 16);
+    document.getElementById('act-location').value = act.location;
+    document.getElementById('act-fee').value = act.fee;
+    document.getElementById('act-capacity').value = act.capacity;
+    document.getElementById('act-desc').value = act.desc;
+
+    currentImageAssets = [];
+    if(act.media) {
+        let urls = act.media.split(',');
+        urls.forEach(url => { if(url.trim() !== '') currentImageAssets.push({ type: 'url', url: url.trim() }); });
+    }
+    renderImagePreviews();
+
+    document.getElementById('act-form-container').scrollIntoView({ behavior: 'smooth' });
+};
+
+window.cancelEditActivity = function() {
+    editingActivityId = null;
+    document.getElementById('act-form-title').innerText = "📢 新增活動發布";
+    document.getElementById('submit-act-btn').innerText = "發布活動";
+    document.getElementById('btn-cancel-edit').style.display = "none";
+    ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc'].forEach(id => document.getElementById(id).value = '');
+    currentImageAssets = []; renderImagePreviews();
+};
+
+window.deleteAdminActivity = async function(actId, actName) {
+    if (!confirm(`⚠️ 確定要刪除活動「${actName}」嗎？此動作無法復原！`)) return;
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'deleteActivity', actId: actId }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        if (result.success) { alert('活動已刪除！'); fetchAndRenderAdminData(); } 
+        else alert('刪除失敗');
+    } catch (error) { alert('系統連線異常'); }
+};
 
 async function submitActivity() {
     const actName = document.getElementById('act-name').value.trim();
     if (!actName) return alert('活動名稱為必填項目！');
+    if (currentImageAssets.some(a => a.type === 'file')) return alert('您有圖片尚未點擊「確認上傳」，請先上傳鎖定後再發布！');
 
     const btn = document.getElementById('submit-act-btn');
-    btn.innerText = "發布中..."; btn.disabled = true;
+    btn.innerText = "資料處理中..."; btn.disabled = true;
+
+    // 抽出所有圖片的網址
+    let finalUrls = currentImageAssets.map(a => a.url);
 
     const actData = {
         name: actName, type: document.getElementById('act-type').value,
         date: document.getElementById('act-date').value, deadline: document.getElementById('act-deadline').value,
         location: document.getElementById('act-location').value.trim(), fee: document.getElementById('act-fee').value.trim(),
         capacity: document.getElementById('act-capacity').value.trim(), description: document.getElementById('act-desc').value.trim(),
-        mediaUrls: uploadedImageUrls
+        mediaUrls: finalUrls
     };
+
+    let actionName = editingActivityId ? 'updateActivity' : 'createActivity';
+    let reqBody = { action: actionName, activityData: actData };
+    if (editingActivityId) reqBody.actId = editingActivityId;
 
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', body: JSON.stringify({ action: 'createActivity', activityData: actData }),
+            method: 'POST', body: JSON.stringify(reqBody),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
         if (result.success) {
-            alert('活動發布成功！');
-            switchAdminTab('members');
-            imageFileBuffers = []; uploadedImageUrls = [];
-        } else alert('發布失敗：' + result.message);
+            alert(editingActivityId ? '活動更新成功！' : '活動發布成功！');
+            cancelEditActivity(); // 清空表單
+            fetchAndRenderAdminData(); // 重新整理列表
+        } else alert('操作失敗：' + result.message);
     } catch (error) { alert('連線異常'); }
     
-    btn.innerText = "發布活動"; btn.disabled = false;
+    btn.disabled = false;
 }
 
+// 會員相關核心邏輯
+function filterMembers() {
+    const input = document.getElementById('member-search').value.toLowerCase();
+    document.querySelectorAll('.member-item').forEach(item => { item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none"; });
+}
 async function approveMemberBtn(targetUid) {
     const dateInput = document.getElementById(`date-${targetUid}`).value;
     const levelInput = document.getElementById(`level-${targetUid}`).value;
@@ -660,31 +795,28 @@ async function approveMemberBtn(targetUid) {
     if (!confirm(`確認升級為「${levelInput}」嗎？`)) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'approveMember', targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-        if ((await response.json()).success) { alert('核准成功！'); document.getElementById(`pending-card-${targetUid}`).remove(); }
+        if ((await response.json()).success) { alert('核准成功！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
-
 async function rejectMemberBtn(targetUid) {
     if (!confirm('確定要駁回嗎？')) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'rejectMember', targetUid: targetUid }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-        if ((await response.json()).success) { alert('已駁回！'); document.getElementById(`pending-card-${targetUid}`).remove(); }
+        if ((await response.json()).success) { alert('已駁回！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
-
 async function extendMemberBtn(targetUid) {
     const newDate = document.getElementById(`extend-date-${targetUid}`).value;
     if (!newDate) return alert('請選擇到期日');
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'extendMemberExpiry', targetUid: targetUid, newDate: newDate }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-        if ((await response.json()).success) { alert('更新成功！'); document.getElementById(`display-date-${targetUid}`).innerText = newDate; }
+        if ((await response.json()).success) { alert('更新成功！'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
-
 async function terminateMemberBtn(targetUid, memberName) {
     if (!confirm(`警告：確定停止「${memberName}」會籍嗎？`)) return;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'terminateMember', targetUid: targetUid }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
-        if ((await response.json()).success) { alert('已停權。'); document.getElementById(`active-card-${targetUid}`).remove(); }
+        if ((await response.json()).success) { alert('已停權。'); fetchAndRenderAdminData(); }
     } catch (error) { alert('連線異常'); }
 }
