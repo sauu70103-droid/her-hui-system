@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (支援跨月資料表的狀態變更)
+ * 說明：前端核心邏輯 (加入性別「其他」選項，包含所有高階管理與美化功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -117,7 +117,7 @@ function renderRegistrationForm() {
             <p style="font-size: 0.95rem; margin-bottom: 2rem; text-align: center; color: #666;">請完整填寫以下資訊，加入我們</p>
             <form id="reg-form">
                 <div><label style="${labelStyle}">真實姓名</label><input type="text" id="input-name" style="${inputStyle}" required></div>
-                <div><label style="${labelStyle}">生理性別</label><select id="input-gender" style="${inputStyle}" required><option value="女性">女性</option><option value="男性">男性</option></select></div>
+                <div><label style="${labelStyle}">生理性別</label><select id="input-gender" style="${inputStyle}" required><option value="女性">女性</option><option value="男性">男性</option><option value="其他">其他</option></select></div>
                 <div><label style="${labelStyle}">生日 (YYYY-MM-DD)</label><input type="date" id="input-birthday" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">手機號碼</label><input type="tel" id="input-phone" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">Email</label><input type="email" id="input-email" style="${inputStyle}" required></div>
@@ -247,7 +247,11 @@ window.openEditProfileModal = function() {
                 <p style="font-size:0.85rem; color:#666; margin-bottom:20px;">此處不會修改您的到期日與編號，請安心編輯。</p>
                 <label style="${labelStyle}">真實姓名</label><input type="text" id="edit-name" style="${inputStyle}" value="${p['真實姓名']||''}">
                 <label style="${labelStyle}">性別</label>
-                <select id="edit-gender" style="${inputStyle}"><option value="女性" ${(p['性別']==='女性')?'selected':''}>女性</option><option value="男性" ${(p['性別']==='男性')?'selected':''}>男性</option></select>
+                <select id="edit-gender" style="${inputStyle}">
+                    <option value="女性" ${(p['性別']==='女性')?'selected':''}>女性</option>
+                    <option value="男性" ${(p['性別']==='男性')?'selected':''}>男性</option>
+                    <option value="其他" ${(p['性別']==='其他')?'selected':''}>其他</option>
+                </select>
                 <label style="${labelStyle}">生日 (YYYY-MM-DD)</label><input type="date" id="edit-birthday" style="${inputStyle}" value="${displayBirth.substring(0, 10)}">
                 <label style="${labelStyle}">手機號碼</label><input type="text" id="edit-phone" style="${inputStyle}" value="${displayPhone}">
                 <label style="${labelStyle}">Email</label><input type="email" id="edit-email" style="${inputStyle}" value="${p['Email']||''}">
@@ -279,7 +283,7 @@ window.submitProfileUpdate = async function() {
 };
 
 // ==========================================
-// 🌟 活動與歷史紀錄
+// 🌟 活動與歷史紀錄 (加入報名權限與過期阻擋)
 // ==========================================
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
@@ -425,9 +429,8 @@ async function submitModRequest(activityId) {
 }
 
 // ==========================================
-// 🌟 管理員後台邏輯與介面
+// 🌟 管理員後台邏輯與介面 (加入異常與過期面板)
 // ==========================================
-
 function showAdminLoginModal() {
     if (document.getElementById('admin-modal')) return;
     document.body.insertAdjacentHTML('beforeend', `
@@ -464,7 +467,6 @@ async function fetchAndRenderAdminData() {
     } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; }
 }
 
-// 🌟 編號推測連動函數
 function updatePreviewId(uid) { 
     document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[document.getElementById(`level-${uid}`).value]; 
 }
@@ -524,9 +526,7 @@ function buildAdminDashboardUI(data) {
                         <div style="background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px;">
                             <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">單純延期：</label>
                             <div style="display:flex; gap:10px; margin-bottom:20px;"><input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin:0; flex:2; padding:12px; border-radius: 8px; box-sizing:border-box;"><button class="btn-secondary" style="flex:1; padding:12px; font-size:0.95rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="extendMemberBtn('${m.uid}')">💾 更新延期</button></div>
-                            
                             <hr style="border: 0; border-top: 1px dashed #ddd; margin: 15px 0;">
-                            
                             <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">選擇降級至：</label>
                             <div style="display:flex; gap:10px; margin-bottom:15px;">
                                 <select id="change-level-${m.uid}" class="admin-search-bar" style="margin:0; flex:1; padding:12px; border-radius: 8px;">
@@ -563,7 +563,7 @@ function buildAdminDashboardUI(data) {
                         <div><h4 style="margin: 0; font-size: 1.2rem; color: var(--text-inkblue);">${m.name} <span style="font-size: 0.85rem; color: #666; font-weight: normal;">(${m.gender || '未知'})</span></h4><p style="margin: 4px 0 0; font-size: 0.9rem; color: #666;">📞 ${m.phone}</p></div>
                     </div>
                     <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 0.95rem; color: #444; border: 1px dashed #BF9A5A;">
-                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${m.birthday}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${m.birthday || '-'}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
                     </div>
                     <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：</label>
                     <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')">
@@ -684,9 +684,8 @@ window.changeMemberLevelBtn = async function(targetUid) {
 }
 
 // ==========================================
-// 🌟 管理員：報名名單與寄信功能 (加入 sheetName 傳遞)
+// 🌟 管理員：報名名單與寄信功能
 // ==========================================
-
 window.openAdminRegistrations = async function(actId, actName) {
     const btn = event.target; const originalText = btn.innerText; btn.innerText = "載入名單中..."; btn.disabled = true;
     try {
@@ -811,7 +810,6 @@ window.sendCustomEventEmail = async function(actId) {
     btn.innerText = originalText; btn.disabled = false;
 };
 
-// 🌟 狀態更新加入 sheetName 傳遞
 window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElement) {
     selectElement.disabled = true;
     try {
