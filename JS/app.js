@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (加入活動權限阻擋與異常過期會員紅字警告面板)
+ * 說明：前端核心邏輯 (加入報名權限阻擋、動態編號預覽、與彈性的過期會員處理雙軌制)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -18,6 +18,9 @@ let editingActivityId = null;
 let appStartTime = Date.now();
 let isFirstLoad = true;
 
+// ==========================================
+// 🌟 共用輔助函數
+// ==========================================
 function getDriveImageUrl(rawUrl) {
     if (!rawUrl) return '';
     let url = rawUrl.trim();
@@ -72,6 +75,9 @@ function getPremiumHeader(icon, title) {
     `;
 }
 
+// ==========================================
+// 🌟 系統初始化與登入邏輯
+// ==========================================
 document.addEventListener('DOMContentLoaded', () => { initializeApp(); });
 
 async function initializeApp() {
@@ -99,6 +105,9 @@ async function checkUserRoleAndStatus(uid) {
     }
 }
 
+// ==========================================
+// 🌟 會員前台與註冊邏輯
+// ==========================================
 function renderRegistrationForm() {
     const labelStyle = "font-size: 0.9rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px; text-align: left;";
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #BF9A5A; font-size: 1rem; margin-bottom: 1.2rem; box-sizing: border-box;";
@@ -164,8 +173,16 @@ function renderMemberDashboard(userData) {
     if (isApprovedMember && userData.profile['授權到期日'] && userData.profile['授權到期日'] !== '無') {
         let expDate = new Date(userData.profile['授權到期日']);
         formattedExpDate = expDate.toISOString().split('T')[0];
+        
+        // 🌟 防呆：如果前台判斷授權已過期，也要顯示過期警告
+        let today = new Date(); today.setHours(0,0,0,0);
         let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
-        if (expDate <= twoMonthsLater) expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 您的${userData.status}資格即將於 ${formattedExpDate} 到期。</p></div>`;
+        
+        if (expDate < today) {
+            expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">🚫 您的${userData.status}資格已於 ${formattedExpDate} 到期。部分功能已限制。</p></div>`;
+        } else if (expDate <= twoMonthsLater) {
+            expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 您的${userData.status}資格即將於 ${formattedExpDate} 到期。</p></div>`;
+        }
     }
 
     let profileHtml = '';
@@ -222,6 +239,7 @@ window.openEditProfileModal = function() {
     let displayBirth = p['生日'] ? (p['生日'] instanceof Date ? p['生日'].toISOString().split('T')[0] : p['生日']) : '';
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
     const labelStyle = "font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;";
+
     let html = `
         <div id="edit-profile-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) this.remove()">
             <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:2rem 1.5rem; max-height:85vh; overflow-y:auto; position:relative; text-align:left;">
@@ -262,7 +280,7 @@ window.submitProfileUpdate = async function() {
 };
 
 // ==========================================
-// 🌟 活動與歷史紀錄 (加入報名權限阻擋)
+// 🌟 活動與歷史紀錄 (加入報名權限與過期阻擋)
 // ==========================================
 
 async function fetchMemberActivitiesAndHistory(uid) {
@@ -279,20 +297,35 @@ async function fetchMemberActivitiesAndHistory(uid) {
         if (globalActivities.length === 0) {
             actHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">近期尚無活動發布。</p>`;
         } else {
+            // 🌟 判斷是否過期
+            let isUserExpired = false;
+            if (globalUserData.profile['授權到期日'] && globalUserData.profile['授權到期日'] !== '無') {
+                let expDate = new Date(globalUserData.profile['授權到期日']);
+                let today = new Date(); today.setHours(0,0,0,0);
+                if (expDate < today) isUserExpired = true;
+            }
+
             globalActivities.forEach(act => {
                 let imgUrls = act.media ? act.media.split(',') : [];
                 let mainImg = (imgUrls.length > 0 && imgUrls[0].trim() !== '') ? `<img src="${getDriveImageUrl(imgUrls[0])}" style="width: 100%; height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 15px;">` : '';
                 let isRegistered = historyData.some(h => h.id === act.id);
                 
-                // 🌟 核心防呆：報名權限阻擋
                 let canRegister = true;
                 let btnText = isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名';
                 let btnColor = isRegistered ? 'background-color: var(--accent-gold);' : '';
                 
+                // 🌟 防呆：權限不符
                 if (act.targetAudience === '限她薈與創始會員' && !['她薈會員', '創始會員'].includes(globalUserData.status) && !globalUserData.isAdmin) {
                     canRegister = false;
                     btnText = '🔒 僅限她薈與創始會員';
                     btnColor = 'background-color: #d3d3d3; color: #777; cursor: not-allowed; border: none;';
+                }
+                
+                // 🌟 防呆：帳號已過期
+                if (isUserExpired && !globalUserData.isAdmin) {
+                    canRegister = false;
+                    btnText = '🚫 授權已過期，無法報名';
+                    btnColor = 'background-color: #d3d3d3; color: #d9534f; cursor: not-allowed; border: 1px solid #d9534f;';
                 }
 
                 actHtml += `
@@ -436,7 +469,11 @@ async function fetchAndRenderAdminData() {
     } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; }
 }
 
-function updatePreviewId(uid) { document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[document.getElementById(`level-${uid}`).value]; }
+// 🌟 編號推測聯動功能
+window.updatePreviewId = function(uid) { 
+    document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[document.getElementById(`level-${uid}`).value]; 
+}
+
 window.switchAdminTab = function(tabName) {
     document.getElementById('admin-member-sec').style.display = (tabName === 'members') ? 'block' : 'none';
     document.getElementById('admin-act-sec').style.display = (tabName === 'activities') ? 'block' : 'none';
@@ -521,7 +558,6 @@ function buildAdminDashboardUI(data) {
         html += `<p style="font-size:0.95rem; color:#666; margin-bottom:1.5rem; text-align: center;">目前無待審核的會員。</p>`;
     } else {
         data.pending.forEach(m => {
-            let birth = m.birthday ? (m.birthday instanceof Date ? m.birthday.toISOString().split('T')[0] : m.birthday) : '-';
             html += `
                 <div class="data-card" id="pending-card-${m.uid}" style="text-align: left; border-top: 5px solid var(--text-inkblue); border-radius: 16px; padding: 1.5rem;">
                     <div style="display: flex; align-items: center; margin-bottom: 12px;">
@@ -529,10 +565,12 @@ function buildAdminDashboardUI(data) {
                         <div><h4 style="margin: 0; font-size: 1.2rem; color: var(--text-inkblue);">${m.name} <span style="font-size: 0.85rem; color: #666; font-weight: normal;">(${m.gender || '未知'})</span></h4><p style="margin: 4px 0 0; font-size: 0.9rem; color: #666;">📞 ${m.phone}</p></div>
                     </div>
                     <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 0.95rem; color: #444; border: 1px dashed #BF9A5A;">
-                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${birth}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${m.birthday}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
                     </div>
-                    <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級：</label>
-                    <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')"><option value="一般會員">一般會員</option><option value="她薈會員">她薈會員</option><option value="創始會員">創始會員</option></select>
+                    <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：</label>
+                    <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')">
+                        <option value="一般會員">一般會員</option><option value="她薈會員">她薈會員</option><option value="創始會員">創始會員</option>
+                    </select>
                     <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">設定授權到期日：</label>
                     <input type="date" id="date-${m.uid}" class="admin-search-bar" value="${defaultDate}" style="margin-bottom: 18px; padding: 10px; border-radius: 8px;">
                     <div style="display: flex; gap: 10px;"><button class="btn-secondary" style="background-color: #d9534f; flex: 1; padding: 12px; border-radius: 8px; color: white; border: none; font-size: 1rem;" onclick="rejectMemberBtn('${m.uid}')">駁回</button><button class="btn-secondary" style="background-color: var(--accent-gold); flex: 2; padding: 12px; border-radius: 8px; color: white; border: none; font-size: 1rem; font-weight: bold;" onclick="approveMemberBtn('${m.uid}')">確認核准入會</button></div>
@@ -547,8 +585,7 @@ function buildAdminDashboardUI(data) {
     data.active.forEach(m => {
         let displayPhone = m.phone ? String(m.phone).replace(/^'/, '') : '-';
         let compJobStr = [((m.company && m.company !== '-') ? m.company : ''), ((m.jobTitle && m.jobTitle !== '-') ? m.jobTitle : '')].filter(Boolean).join(' / ') || '無公司與職稱資訊';
-        let birth = m.birthday ? (m.birthday instanceof Date ? m.birthday.toISOString().split('T')[0] : m.birthday) : '-';
-        let defaultExtend = m.status === '一般會員' ? '2099-12-31' : m.expiryDate;
+        let defaultExtend = m.status === '一般會員' ? '2099-12-31' : m.expiryDate; 
 
         let cardHtml = `
             <div class="data-card member-item" style="text-align:left; padding: 1.2rem; margin-bottom: 15px; border-left: 5px solid var(--accent-gold); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); background: #fff;">
@@ -556,10 +593,11 @@ function buildAdminDashboardUI(data) {
                     <div><h4 style="margin: 0; color: var(--text-inkblue); font-size: 1.15rem;">${m.name} <span style="font-size: 0.9rem; color: #999; font-weight: normal;">(${m.memberId})</span></h4><p style="margin: 4px 0 0; font-size: 0.9rem; color: #555;">🏢 ${compJobStr}</p></div>
                     <span style="font-size:0.85rem; background:#F8F5EF; border: 1px solid #BF9A5A; padding:4px 10px; border-radius:12px; color: var(--accent-gold); font-weight: bold;">📞 ${displayPhone}</span>
                 </div>
+                
                 <details style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
                     <summary style="color: var(--text-inkblue); font-weight: bold; font-size: 0.95rem; outline: none; margin-bottom: 10px; background: rgba(191,154,90,0.1); padding: 8px 12px; border-radius: 8px; display: inline-block;">⚙️ 展開詳細資訊與授權管理</summary>
                     <div style="background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px;">
-                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🎂 生日：</strong> ${birth}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🚻 性別：</strong> ${m.gender || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p><p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🎂 生日：</strong> ${m.birthday || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🚻 性別：</strong> ${m.gender || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p><p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
                         
                         <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">純更新到期日 (目前: ${m.expiryDate})</label>
                         <div style="display:flex; gap:10px; margin-bottom:20px;"><input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${defaultExtend}" style="margin:0; flex:2; padding:12px; border-radius: 8px; box-sizing:border-box;"><button class="btn-secondary" style="flex:1; padding:12px; font-size:0.95rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="extendMemberBtn('${m.uid}')">💾 單純延期</button></div>
@@ -614,26 +652,29 @@ function buildAdminDashboardUI(data) {
         </div>`;
 
     html += getPremiumHeader('📋', '現有活動管理');
-    if (adminActivitiesData.length === 0) html += `<p style="font-size:0.95rem; color:#666; text-align: center;">目前尚無活動資料。</p>`;
-    else adminActivitiesData.forEach(act => {
-        html += `
-            <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left; border-radius: 16px; padding: 1.5rem;" id="admin-act-${act.id}">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <h5 style="margin: 0 0 8px; color: var(--text-inkblue); font-size: 1.25rem;">${act.name}</h5>
-                    <span style="font-size:0.75rem; background:#F8F5EF; color:var(--accent-gold); padding:4px 8px; border-radius:12px; border: 1px solid var(--accent-gold);">${act.targetAudience}</span>
-                </div>
-                <p style="font-size: 0.95rem; color: #666; margin-bottom: 15px;">📅 ${formatDateTime(act.date)} <br>📍 ${act.location}</p>
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <button class="btn-primary" style="background-color: var(--text-inkblue); width:100%; padding:12px; border-radius: 8px; font-size: 1rem;" onclick="openAdminRegistrations('${act.id}', '${act.name}')">👥 查看報名名單與寄信</button>
-                    <div style="display:flex; gap:10px;"><button class="btn-secondary" style="flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯活動</button><button class="btn-primary" style="background-color:#d9534f; flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button></div>
-                </div>
-            </div>`;
-    });
+    if (adminActivitiesData.length === 0) {
+        html += `<p style="font-size:0.95rem; color:#666; text-align: center;">目前尚無活動資料。</p>`;
+    } else {
+        adminActivitiesData.forEach(act => {
+            html += `
+                <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left; border-radius: 16px; padding: 1.5rem;" id="admin-act-${act.id}">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                        <h5 style="margin: 0 0 8px; color: var(--text-inkblue); font-size: 1.25rem;">${act.name}</h5>
+                        <span style="font-size:0.75rem; background:#F8F5EF; color:var(--accent-gold); padding:4px 8px; border-radius:12px; border: 1px solid var(--accent-gold);">${act.targetAudience}</span>
+                    </div>
+                    <p style="font-size: 0.95rem; color: #666; margin-bottom: 15px;">📅 ${formatDateTime(act.date)} <br>📍 ${act.location}</p>
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                        <button class="btn-primary" style="background-color: var(--text-inkblue); width:100%; padding:12px; border-radius: 8px; font-size: 1rem;" onclick="openAdminRegistrations('${act.id}', '${act.name}')">👥 查看報名名單與寄信</button>
+                        <div style="display:flex; gap:10px;"><button class="btn-secondary" style="flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯活動</button><button class="btn-primary" style="background-color:#d9534f; flex:1; padding:10px; font-size:0.95rem; border-radius: 8px;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button></div>
+                    </div>
+                </div>`;
+        });
+    }
     html += `</div>`;
     document.getElementById('app-content').innerHTML = html;
 }
 
-// 🌟 手動降級與變更等級邏輯
+// 🌟 變更等級與降級邏輯
 window.changeMemberLevelBtn = async function(targetUid) {
     const dateInput = document.getElementById(`change-date-${targetUid}`).value;
     const levelInput = document.getElementById(`change-level-${targetUid}`).value;
@@ -761,8 +802,8 @@ window.sendCustomEventEmail = async function(actId) {
     if (!subject || !bodyText) return alert("請填寫主旨與內文");
     if (!confirm(`確定要發送信件給勾選的 ${selectedUids.length} 人嗎？`)) return;
 
-    let btn = event.target;
-    let originalText = btn.innerText; btn.innerText = "發送中..."; btn.disabled = true;
+    let btn = event.target; let originalText = btn.innerText; btn.innerText = "發送中..."; btn.disabled = true;
+
     try {
         const response = await fetch(GAS_API_URL, { 
             method: 'POST', 
@@ -845,7 +886,7 @@ window.uploadImagesToServer = async function() {
     if (!actName || !actDate) return alert('請先填寫活動名稱與日期');
     let filesToUpload = currentImageAssets.filter(asset => asset.type === 'file');
     if (filesToUpload.length === 0) return alert('沒有偵測到新的照片需要上傳。');
-    let btn = document.getElementById('btn-upload-images'); btn.innerText = "照片上傳中..."; btn.disabled = true;
+    let btn = document.getElementById('btn-upload-images'); btn.innerText = "照片上傳中，請稍候..."; btn.disabled = true;
     try {
         const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'uploadImages', uid: currentLiffProfile.userId, imagesData: filesToUpload, activityName: actName, dateStr: actDate }) });
         const result = await response.json();
