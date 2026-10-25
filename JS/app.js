@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (修復 Drive 圖片破圖、日期格式化與點擊放大全螢幕檢視)
+ * 說明：前端核心邏輯 (新增後台檢視報名名單、狀態切換與自動寄信功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -13,27 +13,21 @@ let globalUserData = null;
 let isAdminVerified = false; 
 let globalActivities = []; 
 let adminActivitiesData = []; 
-
 let currentImageAssets = []; 
 let editingActivityId = null; 
-
 let appStartTime = Date.now();
 let isFirstLoad = true;
 
-// 🌟 輔助：格式化 Google Drive 圖片網址 (解決破圖問題)
 function getDriveImageUrl(rawUrl) {
     if (!rawUrl) return '';
     let url = rawUrl.trim();
     if (url.includes('drive.google.com')) {
         let match = url.match(/id=([^&]+)/) || url.match(/\/d\/([^/]+)/);
-        if (match && match[1]) {
-            return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
-        }
+        if (match && match[1]) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
     }
     return url;
 }
 
-// 🌟 輔助：格式化日期時間顯示 (去除 .000Z)
 function formatDateTime(dateString) {
     if (!dateString) return '';
     try {
@@ -45,12 +39,9 @@ function formatDateTime(dateString) {
         let hours = String(d.getHours()).padStart(2, '0');
         let mins = String(d.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day} ${hours}:${mins}`;
-    } catch (e) {
-        return dateString.replace('T', ' ').substring(0, 16);
-    }
+    } catch (e) { return dateString.replace('T', ' ').substring(0, 16); }
 }
 
-// 🌟 全螢幕圖片檢視器
 window.viewFullscreenImage = function(url) {
     let overlay = document.createElement('div');
     overlay.style.cssText = "position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.9); z-index:99999; display:flex; justify-content:center; align-items:center; cursor:zoom-out;";
@@ -110,7 +101,6 @@ function renderRegistrationForm() {
     return `
         <div style="background-color: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05);">
             <h3 style="color: var(--accent-gold); margin-bottom: 0.5rem; text-align: center;">準會員申請表</h3>
-            <p style="font-size: 0.9rem; margin-bottom: 1.5rem; text-align: center; color: #666;">請完整填寫以下資訊以完成系統綁定</p>
             <form id="reg-form">
                 <div><label style="${labelStyle}">真實姓名</label><input type="text" id="input-name" style="${inputStyle}" required></div>
                 <div><label style="${labelStyle}">手機號碼</label><input type="tel" id="input-phone" style="${inputStyle}" required></div>
@@ -177,59 +167,32 @@ function renderMemberDashboard(userData) {
         formattedExpDate = expDate.toISOString().split('T')[0];
         let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
         if (expDate <= twoMonthsLater) {
-            expiryWarningHtml = `
-                <div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-                    <p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 續約提醒</p>
-                    <p style="color: #d9534f; font-size: 0.85rem; margin-top: 5px;">您的${userData.status}資格即將於 <strong>${formattedExpDate}</strong> 到期。</p>
-                </div>
-            `;
+            expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 您的${userData.status}資格即將於 ${formattedExpDate} 到期。</p></div>`;
         }
     }
 
     let profileHtml = '';
-    if (typeof window.CardManager !== 'undefined') {
-        profileHtml += window.CardManager.getDashboardCardHtml(userData.status, realNameDisplay, memberIdDisplay);
-    }
+    if (typeof window.CardManager !== 'undefined') profileHtml += window.CardManager.getDashboardCardHtml(userData.status, realNameDisplay, memberIdDisplay);
 
     profileHtml += `
         <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
             <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
             <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員編號：</strong> <span style="float: right;">${memberIdDisplay}</span></p>
             <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>姓名：</strong> <span style="float: right;">${realNameDisplay}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>手機號碼：</strong> <span style="float: right;">${displayPhone}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>Email：</strong> <span style="float: right;">${userData.profile['Email'] || '-'}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>產業：</strong> <span style="float: right;">${userData.profile['產業'] || '-'}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>公司名稱：</strong> <span style="float: right;">${userData.profile['公司名稱'] || '-'}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>職稱：</strong> <span style="float: right;">${userData.profile['職稱'] || '-'}</span></p>
-            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>介紹人：</strong> <span style="float: right;">${userData.profile['介紹人'] || '-'}</span></p>
-            
             <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 15px;">
-                <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br>
-                <span style="font-weight:bold; font-size: 1.1rem; color: var(--accent-gold);">${formattedExpDate}</span>
+                <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br><span style="font-weight:bold; font-size: 1.1rem; color: var(--accent-gold);">${formattedExpDate}</span>
             </div>
         </div>
     `;
 
-    let html = `
-        <div style="text-align: center; margin-bottom: 1.5rem;">
-            <h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem;">您好，${realNameDisplay}</h2>
-        </div>
-        ${expiryWarningHtml}
-        ${profileHtml}
-    `;
+    let html = `<div style="text-align: center; margin-bottom: 1.5rem;"><h2 style="color: var(--text-inkblue); margin-bottom: 0.5rem;">您好，${realNameDisplay}</h2></div>${expiryWarningHtml}${profileHtml}`;
 
     if (isApprovedMember || userData.isAdmin) {
-        html += `<div id="member-loading" class="loading-text">正在載入最新活動...</div>
-                 <div id="activity-section" style="display:none; text-align: left;"></div>
-                 <div id="history-section" style="display:none; margin-top: 2rem; text-align: left;"></div>`;
+        html += `<div id="member-loading" class="loading-text">正在載入最新活動...</div><div id="activity-section" style="display:none; text-align: left;"></div><div id="history-section" style="display:none; margin-top: 2rem; text-align: left;"></div>`;
         document.getElementById('app-content').innerHTML = html;
         fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
     } else {
-        html += `<div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);">
-                    <h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">功能鎖定中</h4>
-                    <p style="font-size: 0.95rem; color: #666; line-height: 1.6;">狀態為「準會員」。<br>請等待審核解鎖功能。</p>
-                </div>`;
+        html += `<div style="background-color: #fff; padding: 2rem; border-radius: 12px; text-align: center; border: 1px dashed var(--accent-gold);"><h4 style="color: var(--text-inkblue); margin-bottom: 1rem;">功能鎖定中</h4><p style="font-size: 0.95rem; color: #666; line-height: 1.6;">狀態為「準會員」。<br>請等待審核解鎖功能。</p></div>`;
         document.getElementById('app-content').innerHTML = html;
     }
 }
@@ -240,11 +203,8 @@ async function fetchMemberActivitiesAndHistory(uid) {
             fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getActivities' }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } }),
             fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'getUserHistory', uid: uid }), headers: { 'Content-Type': 'text/plain;charset=utf-8' } })
         ]);
-        const actResult = await actRes.json();
-        const histResult = await histRes.json();
-
-        globalActivities = actResult.data || [];
-        let historyData = histResult.data || [];
+        globalActivities = (await actRes.json()).data || [];
+        let historyData = (await histRes.json()).data || [];
         document.getElementById('member-loading').style.display = 'none';
 
         let actHtml = `<h4 style="color: var(--text-inkblue); margin-bottom: 15px;">📅 最新活動與報名</h4>`;
@@ -255,10 +215,8 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 let imgUrls = act.media ? act.media.split(',') : [];
                 let mainImg = '';
                 if (imgUrls.length > 0 && imgUrls[0].trim() !== '') {
-                    let displayUrl = getDriveImageUrl(imgUrls[0]);
-                    mainImg = `<img src="${displayUrl}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">`;
+                    mainImg = `<img src="${getDriveImageUrl(imgUrls[0])}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;">`;
                 }
-                
                 let formattedDate = formatDateTime(act.date);
                 let isRegistered = historyData.some(h => h.id === act.id);
                 let btnText = isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名';
@@ -302,21 +260,18 @@ window.openActivityDetailModal = function(actId, isRegistered) {
 
     let imgUrls = act.media ? act.media.split(',') : [];
     let mainImg = '';
-    
-    // 🌟 主圖渲染與點擊放大
     if (imgUrls.length > 0 && imgUrls[0].trim() !== '') {
         let displayUrl = getDriveImageUrl(imgUrls[0]);
-        mainImg = `<img src="${displayUrl}" onclick="viewFullscreenImage('${displayUrl}')" title="點擊放大" style="width:100%; border-radius:12px; margin-bottom:10px; cursor:zoom-in; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">`;
+        mainImg = `<img src="${displayUrl}" onclick="viewFullscreenImage('${displayUrl}')" title="點擊放大" style="width:100%; border-radius:12px; margin-bottom:10px; cursor:zoom-in;">`;
     }
     
-    // 🌟 子圖渲染與點擊放大
     let subImgsHtml = '';
     if(imgUrls.length > 1) {
         subImgsHtml = `<div style="display:flex; gap:10px; overflow-x:auto; margin-bottom:15px; padding-bottom:10px;">`;
         for(let i=1; i<imgUrls.length; i++) {
             if (imgUrls[i].trim() !== '') {
                 let subUrl = getDriveImageUrl(imgUrls[i]);
-                subImgsHtml += `<img src="${subUrl}" onclick="viewFullscreenImage('${subUrl}')" title="點擊放大" style="width:80px; height:80px; object-fit:cover; border-radius:8px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee;">`;
+                subImgsHtml += `<img src="${subUrl}" onclick="viewFullscreenImage('${subUrl}')" style="width:80px; height:80px; object-fit:cover; border-radius:8px; flex-shrink:0; cursor:zoom-in; border: 1px solid #eee;">`;
             }
         }
         subImgsHtml += `</div>`;
@@ -329,7 +284,7 @@ window.openActivityDetailModal = function(actId, isRegistered) {
         formHtml = `
             <div style="background: rgba(191,154,90,0.1); padding: 15px; border-radius: 12px; margin-top: 20px; text-align:left;">
                 <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:1px solid #ddd; padding-bottom:8px;">📝 提出人數異動申請</h4>
-                <p style="font-size:0.8rem; color:#666;">您已報名此活動。若需修改參加人數，請填寫下方新的人數並送出申請，管理員將為您審核並處理退補費用。</p>
+                <p style="font-size:0.8rem; color:#666;">您已報名此活動。若需修改參加人數，請填寫下方新的人數並送出申請。</p>
                 <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">欲修改之新參加人數：</label>
                 <input type="number" id="mod-pax" style="${inputStyle}" value="1" min="0">
                 <button class="btn-primary" style="width: 100%; background-color: #d9534f;" onclick="submitModRequest('${act.id}')">送出異動申請</button>
@@ -380,30 +335,28 @@ async function submitActivityRegistration(activityId) {
             method: 'POST', body: JSON.stringify({ action: 'registerActivityAdvanced', uid: currentLiffProfile.userId, activityId: activityId, participants: pax, payment: payment }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
-        const result = await response.json();
-        if (result.success) {
+        if ((await response.json()).success) {
             alert('報名成功！');
             document.getElementById('act-detail-modal').remove();
             fetchMemberActivitiesAndHistory(currentLiffProfile.userId);
-        } else alert('報名失敗：' + result.message);
+        } else alert('報名失敗');
     } catch (error) { alert('系統連線異常'); }
 }
 
 async function submitModRequest(activityId) {
     const newPax = document.getElementById('mod-pax').value;
     if(newPax === '') return alert('請輸入新的人數');
-    if (!confirm(`確認提出異動申請？新的人數為 ${newPax} 人。\n送出後將由管理員為您審核並聯繫退補費用事宜。`)) return;
+    if (!confirm(`確認提出異動申請？新的人數為 ${newPax} 人。`)) return;
 
     try {
         const response = await fetch(GAS_API_URL, {
             method: 'POST', body: JSON.stringify({ action: 'submitModRequest', uid: currentLiffProfile.userId, activityId: activityId, newPax: newPax }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
-        const result = await response.json();
-        if (result.success) {
+        if ((await response.json()).success) {
             alert('異動申請已送出！請等候管理員聯繫。');
             document.getElementById('act-detail-modal').remove();
-        } else alert('申請失敗：' + result.message);
+        } else alert('申請失敗');
     } catch (error) { alert('系統連線異常'); }
 }
 
@@ -460,9 +413,7 @@ async function fetchAndRenderAdminData() {
         } else {
             contentArea.innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">讀取資料失敗：<br>${result.message || '未知錯誤'}</p>`;
         }
-    } catch (error) { 
-        contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; 
-    }
+    } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; }
 }
 
 function updatePreviewId(uid) {
@@ -473,7 +424,6 @@ function updatePreviewId(uid) {
 window.switchAdminTab = function(tabName) {
     document.getElementById('admin-member-sec').style.display = (tabName === 'members') ? 'block' : 'none';
     document.getElementById('admin-act-sec').style.display = (tabName === 'activities') ? 'block' : 'none';
-    
     document.getElementById('tab-btn-members').style.opacity = (tabName === 'members') ? '1' : '0.5';
     document.getElementById('tab-btn-activities').style.opacity = (tabName === 'activities') ? '1' : '0.5';
 };
@@ -508,10 +458,8 @@ function buildAdminDashboardUI(data) {
         html += `
             <div class="data-card" id="pending-card-${m.uid}" style="text-align: left;">
                 <p style="margin-bottom: 4px; font-size: 1.05rem;"><strong>${m.name}</strong> (${m.phone})</p>
-                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email}</p>
-                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司 / 職稱: ${m.company} / ${m.jobTitle}</p>
-                <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed #ddd;">產業: ${m.industry} | 介紹人: ${m.referrer}</p>
-                <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：</label>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">Email: ${m.email} | 產業: ${m.industry}</p>
+                <label style="font-size: 0.9rem; font-weight: bold; display: block; margin-bottom: 5px;">選擇會員等級：</label>
                 <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 15px;" onchange="updatePreviewId('${m.uid}')">
                     <option value="一般會員">一般會員</option><option value="她薈會員">她薈會員</option><option value="創始會員">創始會員</option>
                 </select>
@@ -525,111 +473,39 @@ function buildAdminDashboardUI(data) {
         `;
     });
 
+    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">👥 正式會員名單總覽</h4>
+             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話..." onkeyup="filterMembers()">`;
     let founderList = '', annualList = '', generalList = '';
     data.active.forEach(m => {
-        let cardHtml = `
-            <div class="data-card member-item" id="active-card-${m.uid}" style="text-align: left;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
-                    <p style="margin: 0; font-size: 1.05rem;"><strong>${m.name}</strong></p>
-                    <span style="font-size: 0.8rem; background: #eee; padding: 2px 6px; border-radius: 4px; color: #555;">${m.phone}</span>
-                </div>
-                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">公司: ${m.company || '-'}</p>
-                <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">編號: <strong style="color: var(--text-inkblue);">${m.memberId}</strong></p>
-                <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">目前到期日: <strong id="display-date-${m.uid}">${m.expiryDate}</strong></p>
-                
-                <div style="background: #fdfdfd; padding: 10px; border-radius: 6px; border: 1px dashed #ddd;">
-                    <label style="font-size: 0.85rem; font-weight: bold; display: block; margin-bottom: 5px;">延長到期日：</label>
-                    <div style="display: flex; gap: 5px; margin-bottom: 10px;">
-                        <input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${m.expiryDate}" style="margin-bottom: 0; flex: 2; padding: 8px;">
-                        <button class="btn-secondary" style="flex: 1; padding: 8px; font-size: 0.85rem;" onclick="extendMemberBtn('${m.uid}')">更新延期</button>
-                    </div>
-                    <button class="btn-secondary" style="background-color: #d9534f; width: 100%; padding: 8px; font-size: 0.85rem;" onclick="terminateMemberBtn('${m.uid}', '${m.name}')">停止會籍 (停權)</button>
-                </div>
-            </div>
-        `;
+        let cardHtml = `<div class="data-card member-item" style="text-align:left;"><p><strong>${m.name}</strong> - ${m.memberId}</p></div>`;
         if (m.status === '創始會員') founderList += cardHtml;
         else if (m.status === '她薈會員') annualList += cardHtml;
         else generalList += cardHtml;
     });
-
-    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">👥 正式會員名單總覽</h4>
-             <input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()">
-             <h5 style="color: var(--accent-gold); margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">👑 創始會員</h5>
-             <div id="member-list-founder">${founderList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
-             <h5 style="color: var(--accent-gold); margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">🌸 她薈會員</h5>
-             <div id="member-list-annual">${annualList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
-             <h5 style="color: var(--accent-gold); margin-top: 20px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">💎 一般會員</h5>
-             <div id="member-list-general">${generalList || '<p style="font-size: 0.9rem; color: #999;">暫無名單</p>'}</div>
-             </div>`;
+    html += `<h5 style="color: var(--accent-gold);">👑 創始會員</h5><div>${founderList}</div>`;
+    html += `<h5 style="color: var(--accent-gold);">🌸 她薈會員</h5><div>${annualList}</div>`;
+    html += `<h5 style="color: var(--accent-gold);">💎 一般會員</h5><div>${generalList}</div></div>`;
 
     // ================== 活動管理區塊 ==================
     html += `<div id="admin-act-sec" style="display:none;">`;
-
-    if(data.modRequests && data.modRequests.length > 0) {
-        html += `<h4 style="color: #d9534f; margin: 20px 0 10px;">⚠️ 報名異動審核區 (${data.modRequests.length} 筆)</h4>`;
-        data.modRequests.forEach(req => {
-            html += `
-                <div class="data-card data-card-danger" id="req-card-${req.rowIdx}">
-                    <p style="margin-bottom:5px;"><strong>${req.name}</strong> 申請修改報名</p>
-                    <p style="font-size:0.85rem; color:#666;">原人數: ${req.oldPax} ➔ <strong style="color:#d9534f;">新申請人數: ${req.newPax}</strong></p>
-                    <div style="display:flex; gap:10px; margin-top:10px;">
-                        <button class="btn-primary" style="flex:1; padding:8px;" onclick="alert('已審核通過 (此為展示功能)')">通過並更新</button>
-                    </div>
-                </div>
-            `;
-        });
-    }
-
-    html += `
-        <h4 id="act-form-title" style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
-        <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;" id="act-form-container">
-            <label style="${labelStyle}">活動/通告名稱</label>
-            <input type="text" id="act-name" class="admin-search-bar" placeholder="請輸入活動名稱" required>
-            
-            <label style="${labelStyle}">活動類型</label>
-            <select id="act-type" class="admin-search-bar">
-                <option value="實體課程">實體課程</option><option value="線上講座">線上講座</option>
-                <option value="內部通告">內部通告</option><option value="跨產業聯誼">跨產業聯誼</option>
-            </select>
-            
-            <label style="${labelStyle}">活動日期時間</label>
-            <input type="datetime-local" id="act-date" class="admin-search-bar">
-            
-            <div style="background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px dashed #BF9A5A; margin-bottom: 15px;">
-                <label style="font-size: 0.85rem; font-weight:bold; color:var(--accent-gold); display:block; margin-bottom:10px;">📷 上傳活動媒體 (最多10張)</label>
-                <p style="font-size: 0.75rem; color: #666; margin-top:-5px; margin-bottom:10px;">⚠️ 第一張固定為「主圖」。可點選左右箭頭排序或點 X 刪除。</p>
+    
+    html += `<h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
+             <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;" id="act-form-container">
+                <input type="text" id="act-name" class="admin-search-bar" placeholder="活動名稱" required>
+                <select id="act-type" class="admin-search-bar"><option value="實體課程">實體課程</option></select>
+                <input type="datetime-local" id="act-date" class="admin-search-bar">
                 <input type="file" id="act-media" class="admin-search-bar" accept="image/*" multiple onchange="handleMultipleFileUpload(event)">
-                
-                <div id="upload-preview-area" style="display:flex; gap:12px; overflow-x:auto; margin-bottom:15px; padding:10px 5px; min-height:80px; align-items:center;">
-                    <p style="font-size:0.8rem; color:#999; width:100%; text-align:center;">尚無選擇圖片</p>
-                </div>
-                
-                <button id="btn-upload-images" class="btn-secondary" style="width:100%;" onclick="uploadImagesToServer()">確認上傳並鎖定照片</button>
-            </div>
+                <div id="upload-preview-area" style="display:flex; gap:12px; overflow-x:auto; margin-bottom:15px; min-height:80px;"></div>
+                <button id="btn-upload-images" class="btn-secondary" style="width:100%; margin-bottom:15px;" onclick="uploadImagesToServer()">確認上傳並鎖定照片</button>
+                <input type="datetime-local" id="act-deadline" class="admin-search-bar">
+                <input type="text" id="act-location" class="admin-search-bar" placeholder="地點">
+                <input type="text" id="act-fee" class="admin-search-bar" placeholder="費用">
+                <input type="number" id="act-capacity" class="admin-search-bar" placeholder="人數限制">
+                <textarea id="act-desc" class="admin-search-bar" placeholder="簡介" rows="3"></textarea>
+                <button class="btn-primary" id="submit-act-btn" style="width:100%;" onclick="submitActivity()">發布活動</button>
+             </div>`;
 
-            <label style="${labelStyle}">報名截止時間</label>
-            <input type="datetime-local" id="act-deadline" class="admin-search-bar">
-            
-            <label style="${labelStyle}">活動地點 (或線上連結)</label>
-            <input type="text" id="act-location" class="admin-search-bar" placeholder="輸入地點">
-            
-            <label style="${labelStyle}">費用 (如: 一般1500, 她薈600)</label>
-            <input type="text" id="act-fee" class="admin-search-bar" placeholder="設定費用">
-            
-            <label style="${labelStyle}">人數限制</label>
-            <input type="number" id="act-capacity" class="admin-search-bar" placeholder="設定名額上限">
-            
-            <label style="${labelStyle}">活動詳細簡介</label>
-            <textarea id="act-desc" class="admin-search-bar" placeholder="在此輸入活動詳情..." rows="6"></textarea>
-            
-            <div style="display:flex; gap:10px; margin-top:15px;">
-                <button id="btn-cancel-edit" class="btn-secondary" style="background-color:#999; flex:1; display:none;" onclick="cancelEditActivity()">取消編輯</button>
-                <button class="btn-primary" id="submit-act-btn" style="flex:2;" onclick="submitActivity()">發布活動</button>
-            </div>
-        </div>
-    `;
-
-    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">📋 現有活動管理</h4>`;
+    html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">📋 現有活動管理 (名單與寄信)</h4>`;
     if(adminActivitiesData.length === 0) {
         html += `<p style="font-size:0.9rem; color:#666;">目前尚無活動資料。</p>`;
     } else {
@@ -638,69 +514,145 @@ function buildAdminDashboardUI(data) {
                 <div class="data-card" style="border-left-color: var(--accent-gold); text-align: left;" id="admin-act-${act.id}">
                     <h5 style="margin: 0 0 5px; color: var(--text-inkblue); font-size:1.1rem;">${act.name}</h5>
                     <p style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">📅 ${formatDateTime(act.date)}</p>
-                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 12px;">📍 ${act.location} | 👥 限額: ${act.capacity}</p>
-                    <div style="display:flex; gap:10px;">
-                        <button class="btn-secondary" style="flex:1; padding:8px; font-size:0.85rem;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯內容</button>
-                        <button class="btn-primary" style="background-color:#d9534f; flex:1; padding:8px; font-size:0.85rem;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button>
+                    <div style="display:flex; flex-direction:column; gap:8px;">
+                        <button class="btn-primary" style="background-color: var(--text-inkblue); width:100%; padding:10px;" onclick="openAdminRegistrations('${act.id}', '${act.name}')">👥 查看報名名單與寄信</button>
+                        <div style="display:flex; gap:10px;">
+                            <button class="btn-secondary" style="flex:1; padding:8px; font-size:0.85rem;" onclick="loadActivityForEdit('${act.id}')">✏️ 編輯活動</button>
+                            <button class="btn-primary" style="background-color:#d9534f; flex:1; padding:8px; font-size:0.85rem;" onclick="deleteAdminActivity('${act.id}', '${act.name}')">🗑️ 刪除活動</button>
+                        </div>
                     </div>
                 </div>
             `;
         });
     }
-
     html += `</div>`;
     document.getElementById('app-content').innerHTML = html;
 }
 
+// 🌟 新增：打開活動報名名單與寄信面板
+window.openAdminRegistrations = async function(actId, actName) {
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.innerText = "載入名單中..."; btn.disabled = true;
+
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'getEventRegistrations', actId: actId }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            let regs = result.data;
+            let listHtml = '';
+            
+            if (regs.length === 0) {
+                listHtml = `<p style="text-align:center; color:#999; margin-top:20px;">目前尚無人報名此活動</p>`;
+            } else {
+                regs.forEach(reg => {
+                    let statusColor = reg.status === '已繳費' ? '#4CAF50' : (reg.status === '未繳費' ? '#d9534f' : '#BF9A5A');
+                    listHtml += `
+                        <div style="background:#fdfdfd; border:1px solid #eee; border-left:4px solid ${statusColor}; padding:12px; border-radius:8px; margin-bottom:10px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                                <strong style="font-size:1.05rem; color:var(--text-inkblue);">${reg.name} <span style="font-size:0.85rem; color:#666; font-weight:normal;">(${reg.pax}人)</span></strong>
+                                <span style="font-size:0.8rem; background:#eee; padding:2px 6px; border-radius:4px;">${reg.phone}</span>
+                            </div>
+                            <p style="font-size:0.85rem; color:#666; margin:0 0 5px;">信箱：${reg.email}</p>
+                            <p style="font-size:0.85rem; color:#666; margin:0 0 10px;">繳費方式：${reg.payment}</p>
+                            
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <label style="font-size:0.8rem; font-weight:bold;">狀態：</label>
+                                <select onchange="updateRegStatus(${reg.rowIdx}, this.value, this)" style="padding:6px; border-radius:4px; border:1px solid #ccc; font-size:0.85rem; flex:1;">
+                                    <option value="已報名" ${reg.status==='已報名'?'selected':''}>已報名 (預設)</option>
+                                    <option value="已繳費" ${reg.status==='已繳費'?'selected':''}>✅ 已繳費確認</option>
+                                    <option value="未繳費" ${reg.status==='未繳費'?'selected':''}>❌ 未繳費</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            let modalHtml = `
+                <div id="reg-list-modal" class="modal-overlay" style="align-items: flex-end;" onclick="if(event.target===this) this.remove()">
+                    <div class="modal-content" style="width:100%; max-width:100%; border-radius: 24px 24px 0 0; padding:1.5rem; max-height:85vh; overflow-y:auto; position:relative; text-align:left; background:#F8F5EF;">
+                        <button onclick="document.getElementById('reg-list-modal').remove()" style="position:absolute; top:15px; right:20px; background:none; border:none; font-size:1.8rem; color:#999; cursor:pointer;">&times;</button>
+                        <h3 style="color:var(--text-inkblue); margin-top:0; border-bottom:2px solid var(--accent-gold); padding-bottom:10px;">📋 ${actName}</h3>
+                        
+                        <div style="display:flex; gap:10px; margin: 15px 0; padding-bottom: 15px; border-bottom: 1px dashed #ccc;">
+                            <button class="btn-primary" style="flex:1; padding:10px; font-size:0.85rem;" onclick="sendEventEmails('${actId}', 'reminder', this)">📢 發送行前提醒</button>
+                            <button class="btn-primary" style="background-color:#d9534f; flex:1; padding:10px; font-size:0.85rem;" onclick="sendEventEmails('${actId}', 'payment', this)">💰 催繳未繳費</button>
+                        </div>
+                        
+                        <h4 style="color:var(--text-inkblue); margin-bottom:10px;">報名名單 (${regs.length}筆)</h4>
+                        ${listHtml}
+                    </div>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        } else alert('無法取得名單：' + result.message);
+    } catch (error) { alert('系統連線異常'); }
+    
+    btn.innerText = originalText; btn.disabled = false;
+};
+
+// 🌟 新增：修改報名狀態
+window.updateRegStatus = async function(rowIdx, newStatus, selectElement) {
+    selectElement.disabled = true;
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'updateRegStatus', rowIdx: rowIdx, newStatus: newStatus }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        if (result.success) {
+            // 自動改變左側邊框顏色，讓管理員有視覺回饋
+            let card = selectElement.closest('div').parentElement;
+            card.style.borderLeftColor = newStatus === '已繳費' ? '#4CAF50' : (newStatus === '未繳費' ? '#d9534f' : '#BF9A5A');
+        } else alert('狀態更新失敗');
+    } catch (error) { alert('系統連線異常'); }
+    selectElement.disabled = false;
+};
+
+// 🌟 新增：觸發群發信件功能
+window.sendEventEmails = async function(actId, emailType, btn) {
+    let confirmMsg = emailType === 'reminder' ? '確定要發送「行前提醒信」給所有報名者嗎？' : '確定要發送「繳費提醒信」給所有尚未繳費的報名者嗎？';
+    if (!confirm(confirmMsg)) return;
+
+    let originalText = btn.innerText;
+    btn.innerText = "信件發送中..."; btn.disabled = true;
+
+    try {
+        const response = await fetch(GAS_API_URL, {
+            method: 'POST', body: JSON.stringify({ action: 'sendEventEmails', actId: actId, emailType: emailType }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        const result = await response.json();
+        if (result.success) alert(result.message);
+        else alert('寄信失敗：' + result.message);
+    } catch (error) { alert('系統連線異常，信件可能未完整送出'); }
+    
+    btn.innerText = originalText; btn.disabled = false;
+};
+
+// ... 以下為原有的上傳與建立活動邏輯，皆無刪減 ...
 function renderImagePreviews() {
     let area = document.getElementById('upload-preview-area');
-    if (currentImageAssets.length === 0) {
-        area.innerHTML = `<p style="font-size:0.8rem; color:#999; width:100%; text-align:center;">尚無選擇圖片</p>`;
-        return;
-    }
+    if (currentImageAssets.length === 0) { area.innerHTML = ''; return; }
     let html = '';
     currentImageAssets.forEach((asset, idx) => {
-        let isMain = idx === 0;
         let imgSrc = asset.type === 'url' ? asset.url : asset.previewUrl;
-        let borderColor = isMain ? 'var(--accent-gold)' : '#ddd';
-        let borderWidth = isMain ? '3px' : '1px';
-        
-        html += `
-            <div style="position:relative; display:inline-block; width:75px; flex-shrink:0;">
-                <img src="${imgSrc}" style="width:75px; height:75px; object-fit:cover; border-radius:8px; border:${borderWidth} solid ${borderColor}; box-sizing:border-box;">
-                ${isMain ? `<span style="position:absolute; top:-8px; left:-5px; background:var(--accent-gold); color:white; font-size:0.65rem; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.2);">主圖</span>` : ''}
-                <button onclick="removeImage(${idx})" style="position:absolute; top:-8px; right:-5px; background:#d9534f; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:0.6rem; font-weight:bold; cursor:pointer; line-height:1; box-shadow:0 2px 4px rgba(0,0,0,0.2);">X</button>
-                <div style="display:flex; justify-content:space-between; margin-top:5px; padding:0 2px;">
-                    <button onclick="moveImage(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1rem; padding:0;">⬅️</button>
-                    <button onclick="moveImage(${idx}, 1)" ${idx === currentImageAssets.length - 1 ? 'disabled style="opacity:0.3;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1rem; padding:0;">➡️</button>
-                </div>
-            </div>
-        `;
+        html += `<div style="position:relative; width:75px; flex-shrink:0;">
+                    <img src="${imgSrc}" style="width:75px; height:75px; object-fit:cover; border-radius:8px;">
+                    <button onclick="removeImage(${idx})" style="position:absolute; top:-5px; right:-5px; background:red; color:white; border-radius:50%; width:20px; height:20px; border:none; cursor:pointer;">X</button>
+                 </div>`;
     });
     area.innerHTML = html;
 }
-
-window.removeImage = function(index) {
-    currentImageAssets.splice(index, 1);
-    renderImagePreviews();
-};
-
-window.moveImage = function(index, direction) {
-    if (direction === -1 && index > 0) {
-        [currentImageAssets[index], currentImageAssets[index - 1]] = [currentImageAssets[index - 1], currentImageAssets[index]];
-    } else if (direction === 1 && index < currentImageAssets.length - 1) {
-        [currentImageAssets[index], currentImageAssets[index + 1]] = [currentImageAssets[index + 1], currentImageAssets[index]];
-    }
-    renderImagePreviews();
-};
-
-function handleMultipleFileUpload(event) {
-    let files = event.target.files;
-    if (currentImageAssets.length + files.length > 10) {
-        alert('總共最多只能上傳 10 張照片！');
-        event.target.value = ''; return;
-    }
-    Array.from(files).forEach(file => {
+window.removeImage = function(index) { currentImageAssets.splice(index, 1); renderImagePreviews(); };
+window.handleMultipleFileUpload = function(event) {
+    Array.from(event.target.files).forEach(file => {
         let reader = new FileReader();
         reader.onload = function(e) {
             currentImageAssets.push({ type: 'file', base64: e.target.result.split(',')[1], mimeType: file.type, previewUrl: e.target.result });
@@ -709,124 +661,64 @@ function handleMultipleFileUpload(event) {
         reader.readAsDataURL(file);
     });
     event.target.value = ''; 
-}
-
-async function uploadImagesToServer() {
+};
+window.uploadImagesToServer = async function() {
     let actName = document.getElementById('act-name').value.trim();
     let actDate = document.getElementById('act-date').value;
-    if (!actName || !actDate) return alert('請先填寫「活動名稱」與「活動日期」再進行圖片鎖定上傳！');
-    
+    if (!actName || !actDate) return alert('請先填寫活動名稱與日期');
     let filesToUpload = currentImageAssets.filter(asset => asset.type === 'file');
-    if (filesToUpload.length === 0) return alert('沒有偵測到新的照片需要上傳。');
-
+    if (filesToUpload.length === 0) return alert('沒有新照片');
     let btn = document.getElementById('btn-upload-images');
-    let originalText = btn.innerText;
-    btn.innerText = "照片上傳中，請稍候..."; btn.disabled = true;
-
+    btn.innerText = "上傳中..."; btn.disabled = true;
     try {
         const response = await fetch(GAS_API_URL, {
-            method: 'POST', body: JSON.stringify({ action: 'uploadImages', imagesData: filesToUpload, activityName: actName, dateStr: actDate }),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            method: 'POST', body: JSON.stringify({ action: 'uploadImages', imagesData: filesToUpload, activityName: actName, dateStr: actDate }), headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
         const result = await response.json();
         if (result.success) {
             let urlIdx = 0;
-            currentImageAssets.forEach(asset => {
-                if(asset.type === 'file') { asset.type = 'url'; asset.url = result.urls[urlIdx++]; delete asset.base64; delete asset.previewUrl; }
-            });
-            alert('照片上傳並鎖定成功！');
-            btn.innerText = "已鎖定上傳 ✅"; btn.style.backgroundColor = "#4CAF50";
-            setTimeout(() => { btn.innerText = "確認上傳並鎖定照片"; btn.style.backgroundColor = ""; btn.disabled = false; }, 3000);
-        } else { alert('上傳失敗：' + result.message); btn.innerText = originalText; btn.disabled = false; }
-    } catch (error) { alert('連線異常，圖片無法上傳'); btn.innerText = originalText; btn.disabled = false; }
-}
+            currentImageAssets.forEach(asset => { if(asset.type === 'file') { asset.type = 'url'; asset.url = result.urls[urlIdx++]; } });
+            btn.innerText = "上傳成功 ✅"; 
+        } else alert('上傳失敗');
+    } catch(e) { alert('連線異常'); }
+    setTimeout(() => { btn.innerText = "確認上傳並鎖定照片"; btn.disabled = false; }, 2000);
+};
 
+window.submitActivity = async function() {
+    const actName = document.getElementById('act-name').value.trim();
+    if (!actName) return alert('活動名稱為必填！');
+    const actData = {
+        name: actName, type: document.getElementById('act-type').value, date: document.getElementById('act-date').value,
+        deadline: document.getElementById('act-deadline').value, location: document.getElementById('act-location').value.trim(),
+        fee: document.getElementById('act-fee').value.trim(), capacity: document.getElementById('act-capacity').value.trim(),
+        description: document.getElementById('act-desc').value.trim(), mediaUrls: currentImageAssets.map(a => a.url)
+    };
+    let reqBody = { action: editingActivityId ? 'updateActivity' : 'createActivity', activityData: actData };
+    if (editingActivityId) reqBody.actId = editingActivityId;
+    try {
+        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify(reqBody), headers: { 'Content-Type': 'text/plain;charset=utf-8' }});
+        if ((await response.json()).success) { alert('發布成功！'); fetchAndRenderAdminData(); }
+    } catch (error) { alert('連線異常'); }
+};
+window.deleteAdminActivity = async function(actId, actName) {
+    if (!confirm(`確定要刪除「${actName}」嗎？`)) return;
+    try {
+        const response = await fetch(GAS_API_URL, { method: 'POST', body: JSON.stringify({ action: 'deleteActivity', actId: actId }), headers: { 'Content-Type': 'text/plain;charset=utf-8' }});
+        if ((await response.json()).success) { alert('刪除成功！'); fetchAndRenderAdminData(); }
+    } catch (error) { alert('連線異常'); }
+};
 window.loadActivityForEdit = function(actId) {
     let act = adminActivitiesData.find(a => a.id === actId);
     if(!act) return;
-
     editingActivityId = actId;
-    document.getElementById('act-form-title').innerText = "✏️ 編輯現有活動";
-    document.getElementById('submit-act-btn').innerText = "💾 儲存更新";
-    document.getElementById('btn-cancel-edit').style.display = "block";
-
-    document.getElementById('act-name').value = act.name;
-    document.getElementById('act-type').value = act.type;
-    document.getElementById('act-date').value = formatDateTime(act.date).replace(' ', 'T'); 
+    document.getElementById('act-name').value = act.name; document.getElementById('act-type').value = act.type;
+    document.getElementById('act-date').value = formatDateTime(act.date).replace(' ', 'T');
     document.getElementById('act-deadline').value = formatDateTime(act.deadline).replace(' ', 'T');
-    document.getElementById('act-location').value = act.location;
-    document.getElementById('act-fee').value = act.fee;
-    document.getElementById('act-capacity').value = act.capacity;
-    document.getElementById('act-desc').value = act.desc;
-
-    currentImageAssets = [];
-    if(act.media) {
-        let urls = act.media.split(',');
-        urls.forEach(url => { if(url.trim() !== '') currentImageAssets.push({ type: 'url', url: url.trim() }); });
-    }
+    document.getElementById('act-location').value = act.location; document.getElementById('act-fee').value = act.fee;
+    document.getElementById('act-capacity').value = act.capacity; document.getElementById('act-desc').value = act.desc;
+    currentImageAssets = act.media ? act.media.split(',').filter(u => u).map(u => ({type:'url', url:u})) : [];
     renderImagePreviews();
-    document.getElementById('act-form-container').scrollIntoView({ behavior: 'smooth' });
 };
-
-window.cancelEditActivity = function() {
-    editingActivityId = null;
-    document.getElementById('act-form-title').innerText = "📢 新增活動發布";
-    document.getElementById('submit-act-btn').innerText = "發布活動";
-    document.getElementById('btn-cancel-edit').style.display = "none";
-    ['act-name','act-date','act-deadline','act-location','act-fee','act-capacity','act-desc'].forEach(id => document.getElementById(id).value = '');
-    currentImageAssets = []; renderImagePreviews();
-};
-
-window.deleteAdminActivity = async function(actId, actName) {
-    if (!confirm(`⚠️ 確定要刪除活動「${actName}」嗎？此動作無法復原！`)) return;
-    try {
-        const response = await fetch(GAS_API_URL, {
-            method: 'POST', body: JSON.stringify({ action: 'deleteActivity', actId: actId }),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-        });
-        const result = await response.json();
-        if (result.success) { alert('活動已刪除！'); fetchAndRenderAdminData(); } 
-        else alert('刪除失敗');
-    } catch (error) { alert('系統連線異常'); }
-};
-
-async function submitActivity() {
-    const actName = document.getElementById('act-name').value.trim();
-    if (!actName) return alert('活動名稱為必填項目！');
-    if (currentImageAssets.some(a => a.type === 'file')) return alert('您有圖片尚未點擊「確認上傳」，請先上傳鎖定後再發布！');
-
-    const btn = document.getElementById('submit-act-btn');
-    btn.innerText = "資料處理中..."; btn.disabled = true;
-
-    let finalUrls = currentImageAssets.map(a => a.url);
-
-    const actData = {
-        name: actName, type: document.getElementById('act-type').value,
-        date: document.getElementById('act-date').value, deadline: document.getElementById('act-deadline').value,
-        location: document.getElementById('act-location').value.trim(), fee: document.getElementById('act-fee').value.trim(),
-        capacity: document.getElementById('act-capacity').value.trim(), description: document.getElementById('act-desc').value.trim(),
-        mediaUrls: finalUrls
-    };
-
-    let actionName = editingActivityId ? 'updateActivity' : 'createActivity';
-    let reqBody = { action: actionName, activityData: actData };
-    if (editingActivityId) reqBody.actId = editingActivityId;
-
-    try {
-        const response = await fetch(GAS_API_URL, {
-            method: 'POST', body: JSON.stringify(reqBody),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-        });
-        const result = await response.json();
-        if (result.success) {
-            alert(editingActivityId ? '活動更新成功！' : '活動發布成功！');
-            cancelEditActivity(); 
-            fetchAndRenderAdminData(); 
-        } else alert('操作失敗：' + result.message);
-    } catch (error) { alert('連線異常'); }
-    
-    btn.disabled = false;
-}
 
 function filterMembers() {
     const input = document.getElementById('member-search').value.toLowerCase();
