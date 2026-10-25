@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (活動詳情彈窗、進階報名表、人數異動申請、管理員分頁)
+ * 說明：前端核心邏輯 (完整版 - 恢復會員基本資料顯示、支援多圖活動詳情彈窗、進階報名與異動、管理員雙分頁)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -128,9 +128,31 @@ function renderMemberDashboard(userData) {
     }
 
     let profileHtml = '';
+    // 渲染會員實體卡片
     if (typeof window.CardManager !== 'undefined') {
         profileHtml += window.CardManager.getDashboardCardHtml(userData.status, realNameDisplay, memberIdDisplay);
     }
+
+    // 🌟 核心修復：將會員完整詳細資料區塊加回來
+    profileHtml += `
+        <div style="background: #fff; border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05); text-align: left; margin-bottom: 2rem; border-top: 4px solid var(--accent-gold);">
+            <h4 style="color: var(--text-inkblue); margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px;">👤 會員基本資料</h4>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員身分：</strong> <span style="float: right; color: var(--accent-gold); font-weight: bold;">${userData.status}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>會員編號：</strong> <span style="float: right;">${memberIdDisplay}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>姓名：</strong> <span style="float: right;">${realNameDisplay}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>手機號碼：</strong> <span style="float: right;">${displayPhone}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>Email：</strong> <span style="float: right;">${userData.profile['Email'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>產業：</strong> <span style="float: right;">${userData.profile['產業'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>公司名稱：</strong> <span style="float: right;">${userData.profile['公司名稱'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>職稱：</strong> <span style="float: right;">${userData.profile['職稱'] || '-'}</span></p>
+            <p style="border-bottom: 1px dashed #eee; padding-bottom: 8px; font-size: 0.9rem;"><strong>介紹人：</strong> <span style="float: right;">${userData.profile['介紹人'] || '-'}</span></p>
+            
+            <div style="background: rgba(191,154,90,0.05); padding: 10px; border-radius: 8px; text-align: center; margin-top: 15px;">
+                <span style="font-size: 0.85rem; color: #666;">授權到期日</span><br>
+                <span style="font-weight:bold; font-size: 1.1rem; color: var(--accent-gold);">${formattedExpDate}</span>
+            </div>
+        </div>
+    `;
 
     let html = `
         <div style="text-align: center; margin-bottom: 1.5rem;">
@@ -177,7 +199,6 @@ async function fetchMemberActivitiesAndHistory(uid) {
                 let mainImg = imgUrls.length > 0 ? `<img src="${imgUrls[0]}" style="width: 100%; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">` : '';
                 let formattedDate = act.date.replace('T', ' ');
                 
-                // 檢查是否已報名
                 let isRegistered = historyData.some(h => h.id === act.id);
                 let btnText = isRegistered ? '查看詳情 / 異動申請' : '查看詳情與報名';
                 let btnColor = isRegistered ? 'background-color: var(--accent-gold);' : '';
@@ -198,7 +219,7 @@ async function fetchMemberActivitiesAndHistory(uid) {
     } catch (error) { alert('載入資料失敗，請稍後重試。'); }
 }
 
-// 🌟 新增：點開來的活動詳情與進階報名/異動表單
+// 點開來的活動詳情與進階報名/異動表單
 window.openActivityDetailModal = function(actId, isRegistered) {
     let act = globalActivities.find(a => a.id === actId);
     if(!act) return;
@@ -263,7 +284,6 @@ window.openActivityDetailModal = function(actId, isRegistered) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 };
 
-// 🌟 送出報名 (包含人數與繳費方式)
 async function submitActivityRegistration(activityId) {
     const pax = document.getElementById('reg-pax').value;
     const payment = document.getElementById('reg-payment').value.trim();
@@ -285,7 +305,6 @@ async function submitActivityRegistration(activityId) {
     } catch (error) { alert('系統連線異常'); }
 }
 
-// 🌟 送出異動申請
 async function submitModRequest(activityId) {
     const newPax = document.getElementById('mod-pax').value;
     if(newPax === '') return alert('請輸入新的人數');
@@ -360,7 +379,6 @@ function updatePreviewId(uid) {
     document.getElementById(`preview-id-${uid}`).innerText = adminNextIds[level];
 }
 
-// 🌟 管理員儀表板切換邏輯 (徹底分為兩大區塊)
 window.switchAdminTab = function(tabName) {
     document.getElementById('admin-member-sec').style.display = (tabName === 'members') ? 'block' : 'none';
     document.getElementById('admin-act-sec').style.display = (tabName === 'activities') ? 'block' : 'none';
@@ -454,7 +472,6 @@ function buildAdminDashboardUI(data) {
     // ================== 活動管理區塊 ==================
     html += `<div id="admin-act-sec" style="display:none;">`;
 
-    // 異動審核區
     if(data.modRequests && data.modRequests.length > 0) {
         html += `<h4 style="color: #d9534f; margin: 20px 0 10px;">⚠️ 報名異動審核區 (${data.modRequests.length} 筆)</h4>`;
         data.modRequests.forEach(req => {
@@ -470,7 +487,6 @@ function buildAdminDashboardUI(data) {
         });
     }
 
-    // 🌟 活動發布表單 (照片上傳區移到日期下方)
     html += `
         <h4 style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;">
@@ -524,7 +540,6 @@ function filterMembers() {
     });
 }
 
-// 🌟 多圖片預覽處理
 function handleMultipleFileUpload(event) {
     let files = event.target.files;
     if (files.length > 10) {
@@ -545,7 +560,6 @@ function handleMultipleFileUpload(event) {
     });
 }
 
-// 🌟 先行上傳照片按鈕邏輯
 async function uploadImagesToServer() {
     let actName = document.getElementById('act-name').value.trim();
     let actDate = document.getElementById('act-date').value;
@@ -589,7 +603,7 @@ async function submitActivity() {
         date: document.getElementById('act-date').value, deadline: document.getElementById('act-deadline').value,
         location: document.getElementById('act-location').value.trim(), fee: document.getElementById('act-fee').value.trim(),
         capacity: document.getElementById('act-capacity').value.trim(), description: document.getElementById('act-desc').value.trim(),
-        mediaUrls: uploadedImageUrls // 使用剛才預先上傳得到的網址陣列
+        mediaUrls: uploadedImageUrls
     };
 
     try {
@@ -600,7 +614,7 @@ async function submitActivity() {
         const result = await response.json();
         if (result.success) {
             alert('活動發布成功！');
-            switchAdminTab('members'); // 跳回會員管理
+            switchAdminTab('members');
             imageFileBuffers = []; uploadedImageUrls = [];
         } else alert('發布失敗：' + result.message);
     } catch (error) { alert('連線異常'); }
@@ -608,7 +622,6 @@ async function submitActivity() {
     btn.innerText = "發布活動"; btn.disabled = false;
 }
 
-// 其餘管理員功能 (核准、停權等)
 async function approveMemberBtn(targetUid) {
     const dateInput = document.getElementById(`date-${targetUid}`).value;
     const levelInput = document.getElementById(`level-${targetUid}`).value;
