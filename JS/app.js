@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (多圖上傳排序與刪除、活動管理與編輯功能完整版)
+ * 說明：前端核心邏輯 (精確回報管理員專區資料讀取錯誤)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -14,9 +14,8 @@ let isAdminVerified = false;
 let globalActivities = []; 
 let adminActivitiesData = []; 
 
-// 🌟 圖片管理與編輯狀態
-let currentImageAssets = []; // 儲存 { type: 'url', url: '...' } 或 { type: 'file', base64: '...', mimeType: '...', previewUrl: '...' }
-let editingActivityId = null; // null 表示新增，有值表示編輯中
+let currentImageAssets = []; 
+let editingActivityId = null; 
 
 let appStartTime = Date.now();
 let isFirstLoad = true;
@@ -284,13 +283,10 @@ window.openActivityDetailModal = function(actId, isRegistered) {
             <div style="background: #fdfdfd; padding: 15px; border-radius: 12px; border: 1px solid #eee; margin-top: 20px; text-align:left;">
                 <h4 style="color: var(--text-inkblue); margin-top:0; border-bottom:1px solid #ddd; padding-bottom:8px;">報名表單</h4>
                 <p style="font-size:0.85rem; color:#666; margin-bottom:15px;">基本資料已由系統自動帶入：${globalUserData.profile['真實姓名']} / ${globalUserData.profile['手機號碼'].replace(/^'/, '')}</p>
-                
                 <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">參加人數 (含本人)：</label>
                 <input type="number" id="reg-pax" style="${inputStyle}" value="1" min="1">
-                
                 <label style="font-size:0.85rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:5px;">繳費方式 (文字描述，如: 現場繳費、轉帳後五碼)：</label>
                 <input type="text" id="reg-payment" style="${inputStyle}" placeholder="請輸入繳費方式">
-                
                 <button class="btn-primary" style="width: 100%;" onclick="submitActivityRegistration('${act.id}')">確認送出報名</button>
             </div>
         `;
@@ -354,7 +350,6 @@ async function submitModRequest(activityId) {
     } catch (error) { alert('系統連線異常'); }
 }
 
-/* ================= 管理員專區邏輯 ================= */
 function showAdminLoginModal() {
     if (document.getElementById('admin-modal')) return;
     document.body.insertAdjacentHTML('beforeend', `
@@ -386,11 +381,14 @@ async function verifyAdminPassword() {
             isAdminVerified = true; 
             closeAdminModal(); 
             fetchAndRenderAdminData(); 
+        } else { 
+            alert('登入失敗：\n' + (result.message || '請確認密碼或權限')); 
+            btn.innerText = "確認進入"; 
         }
-        else { alert('密碼錯誤或無權限！'); btn.innerText = "確認進入"; }
     } catch (error) { alert('系統連線異常'); btn.innerText = "確認進入"; }
 }
 
+// 🌟 核心修復：精確顯示出讀取失敗的後端錯誤訊息
 async function fetchAndRenderAdminData() {
     const contentArea = document.getElementById('app-content');
     contentArea.innerHTML = `<div class="loading-text">資料讀取中，請稍候...</div>`;
@@ -403,8 +401,13 @@ async function fetchAndRenderAdminData() {
         if (result.success) {
             adminActivitiesData = result.data.activities || [];
             buildAdminDashboardUI(result.data);
-        } else contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取資料失敗。</p>`;
-    } catch (error) { contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; }
+        } else {
+            // 這裡將精確顯示後端拋出的錯誤
+            contentArea.innerHTML = `<p style="color:red; text-align:center; font-weight:bold;">讀取資料失敗：<br>${result.message || '未知錯誤'}</p>`;
+        }
+    } catch (error) { 
+        contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常。</p>`; 
+    }
 }
 
 function updatePreviewId(uid) {
@@ -426,8 +429,8 @@ function buildAdminDashboardUI(data) {
     const labelStyle = "font-size: 0.8rem; font-weight:bold; display:block; margin-bottom:5px; margin-top: 10px;";
     
     adminNextIds = data.nextIds;
-    editingActivityId = null; // 重置編輯狀態
-    currentImageAssets = []; // 清空預覽
+    editingActivityId = null; 
+    currentImageAssets = []; 
 
     let html = `<h2 style="text-align: center; color: var(--accent-gold); margin-bottom: 1.5rem;">⚙️ 系統管理員專區</h2>`;
 
@@ -507,7 +510,6 @@ function buildAdminDashboardUI(data) {
     // ================== 活動管理區塊 ==================
     html += `<div id="admin-act-sec" style="display:none;">`;
 
-    // 異動審核區
     if(data.modRequests && data.modRequests.length > 0) {
         html += `<h4 style="color: #d9534f; margin: 20px 0 10px;">⚠️ 報名異動審核區 (${data.modRequests.length} 筆)</h4>`;
         data.modRequests.forEach(req => {
@@ -523,7 +525,6 @@ function buildAdminDashboardUI(data) {
         });
     }
 
-    // 🌟 新增/編輯 活動表單
     html += `
         <h4 id="act-form-title" style="color: var(--text-inkblue); margin: 20px 0 10px;">📢 新增活動發布</h4>
         <div class="data-card" style="border-left-color: var(--accent-pink); text-align: left;" id="act-form-container">
@@ -539,7 +540,6 @@ function buildAdminDashboardUI(data) {
             <label style="${labelStyle}">活動日期時間</label>
             <input type="datetime-local" id="act-date" class="admin-search-bar">
             
-            <!-- 🌟 進階多圖上傳區塊 (主圖標籤、刪除、移動排序) -->
             <div style="background: #fdfdfd; padding: 15px; border-radius: 8px; border: 1px dashed #BF9A5A; margin-bottom: 15px;">
                 <label style="font-size: 0.85rem; font-weight:bold; color:var(--accent-gold); display:block; margin-bottom:10px;">📷 上傳活動媒體 (最多10張)</label>
                 <p style="font-size: 0.75rem; color: #666; margin-top:-5px; margin-bottom:10px;">⚠️ 第一張固定為「主圖」。可點選左右箭頭排序或點 X 刪除。</p>
@@ -574,7 +574,6 @@ function buildAdminDashboardUI(data) {
         </div>
     `;
 
-    // 🌟 現有活動管理列表
     html += `<h4 style="color: var(--text-inkblue); margin: 30px 0 10px;">📋 現有活動管理</h4>`;
     if(adminActivitiesData.length === 0) {
         html += `<p style="font-size:0.9rem; color:#666;">目前尚無活動資料。</p>`;
@@ -594,11 +593,10 @@ function buildAdminDashboardUI(data) {
         });
     }
 
-    html += `</div>`; // 結束活動區塊
+    html += `</div>`;
     document.getElementById('app-content').innerHTML = html;
 }
 
-// ================== 🌟 進階圖片預覽與狀態管理 ==================
 function renderImagePreviews() {
     let area = document.getElementById('upload-preview-area');
     if (currentImageAssets.length === 0) {
@@ -615,11 +613,8 @@ function renderImagePreviews() {
         html += `
             <div style="position:relative; display:inline-block; width:75px; flex-shrink:0;">
                 <img src="${imgSrc}" style="width:75px; height:75px; object-fit:cover; border-radius:8px; border:${borderWidth} solid ${borderColor}; box-sizing:border-box;">
-                
                 ${isMain ? `<span style="position:absolute; top:-8px; left:-5px; background:var(--accent-gold); color:white; font-size:0.65rem; padding:2px 6px; border-radius:10px; font-weight:bold; box-shadow:0 2px 4px rgba(0,0,0,0.2);">主圖</span>` : ''}
-                
                 <button onclick="removeImage(${idx})" style="position:absolute; top:-8px; right:-5px; background:#d9534f; color:white; border:none; border-radius:50%; width:20px; height:20px; font-size:0.6rem; font-weight:bold; cursor:pointer; line-height:1; box-shadow:0 2px 4px rgba(0,0,0,0.2);">X</button>
-                
                 <div style="display:flex; justify-content:space-between; margin-top:5px; padding:0 2px;">
                     <button onclick="moveImage(${idx}, -1)" ${idx === 0 ? 'disabled style="opacity:0.3;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1rem; padding:0;">⬅️</button>
                     <button onclick="moveImage(${idx}, 1)" ${idx === currentImageAssets.length - 1 ? 'disabled style="opacity:0.3;"' : 'style="cursor:pointer;"'} style="background:none; border:none; font-size:1rem; padding:0;">➡️</button>
@@ -658,7 +653,7 @@ function handleMultipleFileUpload(event) {
         };
         reader.readAsDataURL(file);
     });
-    event.target.value = ''; // 讓同一檔案可重複選
+    event.target.value = ''; 
 }
 
 async function uploadImagesToServer() {
@@ -666,7 +661,6 @@ async function uploadImagesToServer() {
     let actDate = document.getElementById('act-date').value;
     if (!actName || !actDate) return alert('請先填寫「活動名稱」與「活動日期」再進行圖片鎖定上傳！');
     
-    // 過濾出尚未上傳的圖片
     let filesToUpload = currentImageAssets.filter(asset => asset.type === 'file');
     if (filesToUpload.length === 0) return alert('沒有偵測到新的照片需要上傳。');
 
@@ -681,7 +675,6 @@ async function uploadImagesToServer() {
         });
         const result = await response.json();
         if (result.success) {
-            // 將成功上傳的檔案狀態轉為 url
             let urlIdx = 0;
             currentImageAssets.forEach(asset => {
                 if(asset.type === 'file') { asset.type = 'url'; asset.url = result.urls[urlIdx++]; delete asset.base64; delete asset.previewUrl; }
@@ -693,7 +686,6 @@ async function uploadImagesToServer() {
     } catch (error) { alert('連線異常，圖片無法上傳'); btn.innerText = originalText; btn.disabled = false; }
 }
 
-// ================== 🌟 編輯與發布活動 ==================
 window.loadActivityForEdit = function(actId) {
     let act = adminActivitiesData.find(a => a.id === actId);
     if(!act) return;
@@ -718,7 +710,6 @@ window.loadActivityForEdit = function(actId) {
         urls.forEach(url => { if(url.trim() !== '') currentImageAssets.push({ type: 'url', url: url.trim() }); });
     }
     renderImagePreviews();
-
     document.getElementById('act-form-container').scrollIntoView({ behavior: 'smooth' });
 };
 
@@ -752,7 +743,6 @@ async function submitActivity() {
     const btn = document.getElementById('submit-act-btn');
     btn.innerText = "資料處理中..."; btn.disabled = true;
 
-    // 抽出所有圖片的網址
     let finalUrls = currentImageAssets.map(a => a.url);
 
     const actData = {
@@ -775,15 +765,14 @@ async function submitActivity() {
         const result = await response.json();
         if (result.success) {
             alert(editingActivityId ? '活動更新成功！' : '活動發布成功！');
-            cancelEditActivity(); // 清空表單
-            fetchAndRenderAdminData(); // 重新整理列表
+            cancelEditActivity(); 
+            fetchAndRenderAdminData(); 
         } else alert('操作失敗：' + result.message);
     } catch (error) { alert('連線異常'); }
     
     btn.disabled = false;
 }
 
-// 會員相關核心邏輯
 function filterMembers() {
     const input = document.getElementById('member-search').value.toLowerCase();
     document.querySelectorAll('.member-item').forEach(item => { item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none"; });
