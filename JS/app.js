@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/app.js
- * 說明：前端核心邏輯 (終極防呆版：修復編輯崩潰、過期活動分流可點擊、隱藏已刪除活動)
+ * 說明：前端核心邏輯 (修復生日格式顯示、徹底解決編輯活動按鈕死機問題，完整保留所有功能)
  */
 
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbwQKWOkyVSo7BNai0zUHgYNb9yqb9t7eu_6-qXEh9-S3bmijA0atMoeGs0M030IgMDloA/exec';
@@ -19,7 +19,7 @@ let appStartTime = Date.now();
 let isFirstLoad = true;
 
 // ==========================================
-// 🌟 共用輔助函數 (加入強制轉型防呆)
+// 🌟 共用輔助函數
 // ==========================================
 function getDriveImageUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
@@ -44,6 +44,13 @@ function formatDateTime(dateString) {
         let mins = String(d.getMinutes()).padStart(2, '0');
         return `${year}-${month}-${day} ${hours}:${mins}`;
     } catch (e) { return cleanString.substring(0, 16); }
+}
+
+// 🌟 專門處理生日，強制只取 YYYY-MM-DD
+function cleanDateOnly(dateVal) {
+    if (!dateVal || dateVal === '無') return '尚未填寫';
+    let str = String(dateVal);
+    return str.split('T')[0]; // 切除時間部分，保留日期
 }
 
 window.viewFullscreenImage = function(url) {
@@ -173,7 +180,7 @@ function renderMemberDashboard(userData) {
 
     if (isApprovedMember && userData.profile['授權到期日'] && userData.profile['授權到期日'] !== '無') {
         let expDate = new Date(userData.profile['授權到期日']);
-        formattedExpDate = expDate.toISOString().split('T')[0];
+        formattedExpDate = cleanDateOnly(expDate);
         
         let today = new Date(); today.setHours(0,0,0,0);
         let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
@@ -189,7 +196,7 @@ function renderMemberDashboard(userData) {
     if (typeof window.CardManager !== 'undefined') profileHtml += window.CardManager.getDashboardCardHtml(userData.status, userData.profile['真實姓名'] || '-', userData.profile['會員編號'] || '核發中');
 
     let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
-    let displayBirth = userData.profile['生日'] ? (userData.profile['生日'] instanceof Date ? userData.profile['生日'].toISOString().split('T')[0] : userData.profile['生日']) : '尚未填寫';
+    let displayBirth = cleanDateOnly(userData.profile['生日']);
     let displayGender = userData.profile['性別'] || '尚未填寫';
 
     let extraInfoHtml = `
@@ -236,7 +243,9 @@ function renderMemberDashboard(userData) {
 window.openEditProfileModal = function() {
     let p = globalUserData.profile;
     let displayPhone = p['手機號碼'] ? String(p['手機號碼']).replace(/^'/, '') : '';
-    let displayBirth = p['生日'] ? (p['生日'] instanceof Date ? p['生日'].toISOString().split('T')[0] : p['生日']) : '';
+    let displayBirth = cleanDateOnly(p['生日']);
+    if (displayBirth === '尚未填寫') displayBirth = '';
+
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
     const labelStyle = "font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;";
 
@@ -253,7 +262,7 @@ window.openEditProfileModal = function() {
                     <option value="男性" ${(p['性別']==='男性')?'selected':''}>男性</option>
                     <option value="其他" ${(p['性別']==='其他')?'selected':''}>其他</option>
                 </select>
-                <label style="${labelStyle}">生日 (YYYY-MM-DD)</label><input type="date" id="edit-birthday" style="${inputStyle}" value="${displayBirth.substring(0, 10)}">
+                <label style="${labelStyle}">生日 (YYYY-MM-DD)</label><input type="date" id="edit-birthday" style="${inputStyle}" value="${displayBirth}">
                 <label style="${labelStyle}">手機號碼</label><input type="text" id="edit-phone" style="${inputStyle}" value="${displayPhone}">
                 <label style="${labelStyle}">Email</label><input type="email" id="edit-email" style="${inputStyle}" value="${p['Email']||''}">
                 <label style="${labelStyle}">產業</label><input type="text" id="edit-industry" style="${inputStyle}" value="${p['產業']||''}">
@@ -284,7 +293,7 @@ window.submitProfileUpdate = async function() {
 };
 
 // ==========================================
-// 🌟 活動與歷史紀錄 (過期分流、歷史點擊檢視、防呆轉型)
+// 🌟 活動與歷史紀錄
 // ==========================================
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
@@ -309,15 +318,13 @@ async function fetchMemberActivitiesAndHistory(uid) {
 
         globalActivities.forEach(act => {
             let actNameStr = String(act.name || '').trim();
-            // 🌟 防呆：嚴格剔除任何包含已刪除的活動
             if (actNameStr === '已刪除' || actNameStr.includes('已刪除')) return;
 
             let isRegistered = historyData.some(h => h.id === act.id);
             let actDate = new Date(act.date);
             let isExpiredAct = !isNaN(actDate.getTime()) && actDate < now;
             
-            // 🌟 防呆：活動過期就從最新活動列表隱藏
-            if (isExpiredAct) return;
+            if (isExpiredAct && !isRegistered) return;
 
             displayedActs++;
             let imgUrls = act.media ? String(act.media).split(',').filter(u => u.trim() !== '') : [];
@@ -366,7 +373,6 @@ async function fetchMemberActivitiesAndHistory(uid) {
             histHtml += `<p style="font-size:0.95rem; color:#666; text-align: center; padding: 20px;">目前尚無紀錄。</p>`;
         } else {
             historyData.forEach(h => {
-                // 🌟 歷史紀錄加入點擊事件，讓會員能看見過期活動的詳情與照片
                 let actExists = globalActivities.find(a => a.id === h.id);
                 let clickAction = actExists ? `onclick="openActivityDetailModal('${h.id}', true, true)" style="cursor:pointer;"` : '';
                 
@@ -382,12 +388,10 @@ async function fetchMemberActivitiesAndHistory(uid) {
     } catch (error) { alert('載入資料失敗，請稍後重試。'); }
 }
 
-// 🌟 加入 isPastEvent 判斷，若是從歷史紀錄點開過期活動，不顯示報名/異動按鈕
 window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = false) {
     let act = globalActivities.find(a => a.id === actId);
     if (!act) return;
     
-    // 強制轉型，避免舊資料造成 split 崩潰
     let imgUrls = act.media ? String(act.media).split(',').filter(u => u.trim() !== '') : [];
     
     let mainImg = (imgUrls.length > 0) ? `<img src="${getDriveImageUrl(imgUrls[0])}" onclick="viewFullscreenImage('${getDriveImageUrl(imgUrls[0])}')" title="點擊放大" style="width:100%; border-radius:16px; margin-bottom:15px; cursor:zoom-in; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">` : '';
@@ -407,7 +411,6 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 1rem; margin-bottom: 15px; box-sizing:border-box;";
     let formHtml = '';
 
-    // 若活動已過期或是從歷史紀錄點開的舊活動，顯示結束標語
     if (isExpiredAct || isPastEvent) {
         formHtml = `
             <div style="background: #f9f9f9; padding: 15px; border-radius: 12px; margin-top: 20px; text-align:center; border: 1px dashed #ccc;">
@@ -435,7 +438,6 @@ window.openActivityDetailModal = function(actId, isRegistered, isPastEvent = fal
             </div>`;
     }
 
-    // 🌟 強制轉型，避免錯位的資料導致渲染崩潰
     let descText = act.desc ? String(act.desc).replace(/\n/g, '<br>') : '無詳細說明';
     let actNameStr = String(act.name || '');
 
@@ -607,6 +609,7 @@ function buildAdminDashboardUI(data) {
         html += `<p style="font-size:0.95rem; color:#666; margin-bottom:1.5rem; text-align: center;">目前無待審核的會員。</p>`;
     } else {
         data.pending.forEach(m => {
+            let displayBirth = cleanDateOnly(m.birthday);
             html += `
                 <div class="data-card" id="pending-card-${m.uid}" style="text-align: left; border-top: 5px solid var(--text-inkblue); border-radius: 16px; padding: 1.5rem;">
                     <div style="display: flex; align-items: center; margin-bottom: 12px;">
@@ -614,7 +617,7 @@ function buildAdminDashboardUI(data) {
                         <div><h4 style="margin: 0; font-size: 1.2rem; color: var(--text-inkblue);">${m.name} <span style="font-size: 0.85rem; color: #666; font-weight: normal;">(${m.gender || '未知'})</span></h4><p style="margin: 4px 0 0; font-size: 0.9rem; color: #666;">📞 ${m.phone}</p></div>
                     </div>
                     <div style="background: #F8F5EF; padding: 15px; border-radius: 12px; margin-bottom: 15px; font-size: 0.95rem; color: #444; border: 1px dashed #BF9A5A;">
-                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${m.birthday || '-'}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 8px;"><strong>🎂 生日：</strong>${displayBirth}</p><p style="margin: 0 0 8px;"><strong>📧 Email：</strong>${m.email || '-'}</p><p style="margin: 0 0 8px;"><strong>🏢 公司：</strong>${m.company || '-'}</p><p style="margin: 0 0 8px;"><strong>💼 職稱：</strong>${m.jobTitle || '-'}</p><p style="margin: 0 0 8px;"><strong>🏭 產業：</strong>${m.industry || '-'}</p><p style="margin: 0;"><strong>🤝 介紹人：</strong>${m.referrer || '-'}</p>
                     </div>
                     <label style="font-size: 0.95rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px;">選擇會員等級 (預計編號: <span id="preview-id-${m.uid}" style="color:var(--accent-gold);">${adminNextIds['一般會員']}</span>)：</label>
                     <select id="level-${m.uid}" class="admin-search-bar" style="margin-bottom: 12px; padding: 10px; border-radius: 8px;" onchange="updatePreviewId('${m.uid}')">
@@ -635,6 +638,7 @@ function buildAdminDashboardUI(data) {
         let displayPhone = m.phone ? String(m.phone).replace(/^'/, '') : '-';
         let compJobStr = [((m.company && m.company !== '-') ? m.company : ''), ((m.jobTitle && m.jobTitle !== '-') ? m.jobTitle : '')].filter(Boolean).join(' / ') || '無公司與職稱資訊';
         let defaultExtend = m.status === '一般會員' ? '2099-12-31' : m.expiryDate; 
+        let displayBirth = cleanDateOnly(m.birthday);
 
         let cardHtml = `
             <div class="data-card member-item" style="text-align:left; padding: 1.2rem; margin-bottom: 15px; border-left: 5px solid var(--accent-gold); border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); background: #fff;">
@@ -646,7 +650,7 @@ function buildAdminDashboardUI(data) {
                 <details style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 12px; cursor: pointer;">
                     <summary style="color: var(--text-inkblue); font-weight: bold; font-size: 0.95rem; outline: none; margin-bottom: 10px; background: rgba(191,154,90,0.1); padding: 8px 12px; border-radius: 8px; display: inline-block;">⚙️ 展開詳細資訊與授權管理</summary>
                     <div style="background: #fdfdfd; padding: 15px; border-radius: 10px; border: 1px solid #eee; margin-top: 10px;">
-                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🎂 生日：</strong> ${m.birthday || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🚻 性別：</strong> ${m.gender || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p><p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
+                        <p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🎂 生日：</strong> ${displayBirth}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🚻 性別：</strong> ${m.gender || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>📧 Email：</strong> ${m.email || '-'}</p><p style="margin: 0 0 6px; font-size: 0.9rem; color: #444;"><strong>🏭 產業：</strong> ${m.industry || '-'}</p><p style="margin: 0 0 15px; font-size: 0.9rem; color: #444;"><strong>🤝 介紹人：</strong> ${m.referrer || '-'}</p>
                         
                         <label style="font-size:0.9rem; font-weight:bold; color:var(--text-inkblue); display:block; margin-bottom:6px;">純更新到期日 (目前: ${m.expiryDate})</label>
                         <div style="display:flex; gap:10px; margin-bottom:20px;"><input type="date" id="extend-date-${m.uid}" class="admin-search-bar" value="${defaultExtend}" style="margin:0; flex:2; padding:12px; border-radius: 8px; box-sizing:border-box;"><button class="btn-secondary" style="flex:1; padding:12px; font-size:0.95rem; background-color: var(--accent-gold); color: white; border: none; border-radius: 8px; font-weight: bold;" onclick="extendMemberBtn('${m.uid}')">💾 單純延期</button></div>
@@ -986,36 +990,55 @@ window.submitActivity = async function() {
 
 // 🌟 強制防呆轉型載入編輯功能，確保不再受錯位資料影響
 window.loadActivityForEdit = function(actId) {
-    let act = adminActivitiesData.find(a => a.id === actId);
-    if (!act) return;
-    editingActivityId = actId;
-    
-    document.getElementById('act-form-title').innerText = "✏️ 編輯現有活動"; 
-    document.getElementById('submit-act-btn').innerText = "💾 儲存更新"; 
-    document.getElementById('btn-cancel-edit').style.display = "block";
-    
-    let safeAssign = (id, val) => { let el = document.getElementById(id); if (el) el.value = val; };
+    try {
+        let act = adminActivitiesData.find(a => a.id === actId);
+        if (!act) {
+            alert('找不到該筆活動資料');
+            return;
+        }
+        editingActivityId = actId;
+        
+        let titleEl = document.getElementById('act-form-title');
+        if(titleEl) titleEl.innerText = "✏️ 編輯現有活動"; 
+        
+        let btnEl = document.getElementById('submit-act-btn');
+        if(btnEl) btnEl.innerText = "💾 儲存更新"; 
+        
+        let cancelBtn = document.getElementById('btn-cancel-edit');
+        if(cancelBtn) cancelBtn.style.display = "block";
+        
+        const safeSet = (id, val) => {
+            let el = document.getElementById(id);
+            if (el) el.value = (val === null || val === undefined) ? '' : String(val);
+        };
 
-    safeAssign('act-name', act.name || ''); 
-    safeAssign('act-type', act.type || '實體課程'); 
-    
-    let audienceText = String(act.targetAudience || '所有會員');
-    if (audienceText.includes('T') || audienceText.match(/\d{4}-\d{2}-\d{2}/)) { audienceText = '所有會員'; }
-    safeAssign('act-target', audienceText);
-    
-    safeAssign('act-date', formatDateTime(act.date).replace(' ', 'T')); 
-    safeAssign('act-deadline', formatDateTime(act.deadline).replace(' ', 'T'));
-    safeAssign('act-location', act.location || ''); 
-    safeAssign('act-fee', act.fee || '');
-    safeAssign('act-capacity', act.capacity || ''); 
-    safeAssign('act-desc', act.desc || '');
-    
-    // 強制轉字串後再進行 split，徹底避免讀到數字時崩潰
-    currentImageAssets = act.media ? String(act.media).split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() })) : [];
-    
-    renderImagePreviews(); 
-    let container = document.getElementById('act-form-container');
-    if (container) container.scrollIntoView({ behavior: 'smooth' });
+        safeSet('act-name', act.name); 
+        safeSet('act-type', act.type || '實體課程'); 
+        
+        let audienceText = String(act.targetAudience || '所有會員');
+        if (audienceText.includes('T') || audienceText.match(/\d{4}-\d{2}-\d{2}/)) { audienceText = '所有會員'; }
+        safeSet('act-target', audienceText);
+        
+        safeSet('act-date', formatDateTime(act.date).replace(' ', 'T')); 
+        safeSet('act-deadline', formatDateTime(act.deadline).replace(' ', 'T'));
+        safeSet('act-location', act.location); 
+        safeSet('act-fee', act.fee);
+        safeSet('act-capacity', act.capacity); 
+        safeSet('act-desc', act.desc);
+        
+        // 🌟 防呆：強制轉型 String，避免讀到錯位的數字資料時 split() 崩潰
+        currentImageAssets = act.media ? String(act.media).split(',').filter(u => u.trim()).map(u => ({ type: 'url', url: u.trim() })) : [];
+        
+        renderImagePreviews(); 
+        
+        let container = document.getElementById('act-form-container');
+        if (container) {
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } catch(e) {
+        console.error("編輯活動載入失敗:", e);
+        alert("載入失敗，請確認資料格式是否正確！");
+    }
 };
 
 window.cancelEditActivity = function() {
