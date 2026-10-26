@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/member.js
- * 說明：會員前台業務邏輯 (驗證成功後自動隱藏啟動畫面)
+ * 說明：會員前台業務邏輯 (修復日期顯示格式，全面採用 YYYY-MM-DD 純數字格式)
  */
 
 if (document.readyState === 'loading') {
@@ -31,7 +31,7 @@ async function checkUserRoleAndStatus(uid) {
         const result = await callApi({ action: 'checkUser', uid: uid });
         await applyMinimumDelay();
         
-        // 🌟 系統驗證完成，隱藏整個啟動介紹區塊
+        // 系統驗證完成，隱藏整個啟動介紹區塊
         let startupSec = document.getElementById('startup-section');
         if (startupSec) startupSec.style.display = 'none';
 
@@ -102,7 +102,6 @@ function renderMemberDashboard(userData) {
         userData.profile = userData.profile || {};
 
         const topNav = document.getElementById('top-nav');
-        // 🌟 身分判定控制：若是管理員，顯示導覽列 (display: block)；反之則隱藏 (display: none)
         if (userData.isAdmin) {
             if(topNav) topNav.style.display = 'block';
             document.getElementById('btn-admin-area').onclick = () => { if (isAdminVerified) fetchAndRenderAdminData(); else showAdminLoginModal(); };
@@ -111,7 +110,8 @@ function renderMemberDashboard(userData) {
             if(topNav) topNav.style.display = 'none'; 
         }
 
-        let expiryWarningHtml = ''; let formattedExpDate = '無';
+        let expiryWarningHtml = ''; 
+        let formattedExpDate = '無';
         let isApprovedMember = APPROVED_ROLES.includes(userData.status);
         let missingDataWarning = '';
         
@@ -120,14 +120,19 @@ function renderMemberDashboard(userData) {
             missingDataWarning = `<div style="background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 10px rgba(0,0,0,0.05);"><p style="color: #856404; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 您的會員資料尚未完整，請盡速展開下方詳細資料並補充完整。</p></div>`;
         }
 
+        // 🌟 強制使用 getStandardDate (純數字 YYYY-MM-DD 格式)
         if (isApprovedMember && userData.profile['授權到期日'] && userData.profile['授權到期日'] !== '無') {
+            formattedExpDate = getStandardDate(userData.profile['授權到期日']);
+            
             let expDate = new Date(userData.profile['授權到期日']);
-            formattedExpDate = cleanDateOnly(expDate);
             let today = new Date(); today.setHours(0,0,0,0);
             let twoMonthsLater = new Date(); twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
             
-            if (expDate < today) expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">🚫 您的${userData.status}資格已於 ${formattedExpDate} 到期。</p></div>`;
-            else if (expDate <= twoMonthsLater) expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 您的${userData.status}資格即將於 ${formattedExpDate} 到期。</p></div>`;
+            if (expDate < today) {
+                expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">🚫 您的${userData.status}資格已於 ${formattedExpDate} 到期。</p></div>`;
+            } else if (expDate <= twoMonthsLater) {
+                expiryWarningHtml = `<div style="background-color: #fdf2f2; border-left: 4px solid #d9534f; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;"><p style="color: #d9534f; font-weight: bold; font-size: 0.95rem; margin: 0;">⚠️ 您的${userData.status}資格即將於 ${formattedExpDate} 到期。</p></div>`;
+            }
         }
 
         let profileHtml = '';
@@ -138,7 +143,9 @@ function renderMemberDashboard(userData) {
         }
 
         let displayPhone = userData.profile['手機號碼'] ? String(userData.profile['手機號碼']).replace(/^'/, '') : '-';
-        let displayBirth = cleanDateOnly(userData.profile['生日']);
+        // 🌟 生日也強制使用純數字格式
+        let displayBirth = userData.profile['生日'] ? getStandardDate(userData.profile['生日']) : '尚未填寫';
+        if (displayBirth === '') displayBirth = '尚未填寫';
         let displayGender = userData.profile['性別'] || '尚未填寫';
 
         let extraInfoHtml = `
