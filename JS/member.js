@@ -1,15 +1,11 @@
 /**
  * 檔案：JS/member.js
- * 說明：會員前台業務邏輯 (修復載入時序差問題，確保系統 100% 啟動)
+ * 說明：會員前台業務邏輯 (驗證成功後自動隱藏啟動畫面)
  */
 
-// ==========================================
-// 🌟 系統初始化與登入邏輯 (防彈版啟動引擎)
-// ==========================================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', safeInitialize);
 } else {
-    // 若網頁已經載入完畢，直接啟動，不再死等訊號
     safeInitialize();
 }
 
@@ -35,8 +31,9 @@ async function checkUserRoleAndStatus(uid) {
         const result = await callApi({ action: 'checkUser', uid: uid });
         await applyMinimumDelay();
         
-        let overlay = document.getElementById('loading-overlay');
-        if(overlay) overlay.style.display = 'none';
+        // 🌟 系統驗證完成，隱藏整個啟動介紹區塊
+        let startupSec = document.getElementById('startup-section');
+        if (startupSec) startupSec.style.display = 'none';
 
         if (result.success && result.data.isRegistered) { 
             globalUserData = result.data; 
@@ -51,9 +48,6 @@ async function checkUserRoleAndStatus(uid) {
     }
 }
 
-// ==========================================
-// 🌟 會員前台與註冊邏輯
-// ==========================================
 function renderRegistrationForm() {
     const labelStyle = "font-size: 0.9rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px; text-align: left;";
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #BF9A5A; font-size: 1rem; margin-bottom: 1.2rem; box-sizing: border-box;";
@@ -108,11 +102,14 @@ function renderMemberDashboard(userData) {
         userData.profile = userData.profile || {};
 
         const topNav = document.getElementById('top-nav');
+        // 🌟 身分判定控制：若是管理員，顯示導覽列 (display: block)；反之則隱藏 (display: none)
         if (userData.isAdmin) {
-            if(topNav) topNav.classList.remove('hidden');
+            if(topNav) topNav.style.display = 'block';
             document.getElementById('btn-admin-area').onclick = () => { if (isAdminVerified) fetchAndRenderAdminData(); else showAdminLoginModal(); };
             document.getElementById('btn-member-area').onclick = () => { if (globalUserData) renderMemberDashboard(globalUserData); };
-        } else { if(topNav) topNav.classList.add('hidden'); }
+        } else { 
+            if(topNav) topNav.style.display = 'none'; 
+        }
 
         let expiryWarningHtml = ''; let formattedExpDate = '無';
         let isApprovedMember = APPROVED_ROLES.includes(userData.status);
@@ -246,9 +243,6 @@ window.submitProfileUpdate = async function() {
     } catch (error) { sysDebugLog('更新個人資料失敗', error); btn.innerText = '儲存更新'; btn.disabled = false; }
 };
 
-// ==========================================
-// 🌟 活動與歷史紀錄
-// ==========================================
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
         const [actRes, histRes] = await Promise.all([
