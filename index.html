@@ -1,191 +1,39 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>她薈 HER HUI - 會員系統</title>
-    
-    <!-- 引入 Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&family=Noto+Serif+TC:wght@700&display=swap" rel="stylesheet">
-    
-    <style>
-        /* 系統全域變數與配色 */
-        :root {
-            --accent-gold: #BF9A5A;     
-            --text-inkblue: #1B2744;    
-            --accent-pink: #EBD6CF;     
-            --bg-color: #F8F5EF;        
-        }
-        
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 20px 15px;
-            color: #333;
-            box-sizing: border-box;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        .hidden { display: none !important; }
-
-        .main-logo {
-            display: block;
-            margin: 0 auto 25px auto; 
-            width: 130px; 
-            height: 130px; 
-            object-fit: cover; 
-            border-radius: 24px; 
-            box-shadow: 0 6px 20px rgba(191, 154, 90, 0.25); 
-        }
-
-        #top-nav {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-        
-        .nav-btn {
-            padding: 12px 24px;
-            border-radius: 8px;
-            border: none;
-            font-size: 0.95rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        }
-        
-        #btn-member-area { background-color: var(--text-inkblue); color: white; }
-        #btn-admin-area { background-color: var(--accent-gold); color: white; }
-
-        .data-card {
-            background-color: #fff;
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(27, 39, 68, 0.05);
-            margin-bottom: 1.5rem;
-            border-left: 4px solid var(--text-inkblue);
-            box-sizing: border-box;
-        }
-        .data-card-danger { border-left-color: #d9534f; }
-
-        .btn-primary {
-            background-color: var(--text-inkblue);
-            color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: opacity 0.2s;
-        }
-        .btn-primary:active { opacity: 0.8; }
-        
-        .btn-secondary {
-            background-color: var(--accent-gold);
-            color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: opacity 0.2s;
-        }
-        .btn-secondary:active { opacity: 0.8; }
-
-        .admin-search-bar {
-            width: 100%; padding: 10px 12px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px; box-sizing: border-box; font-size: 1rem; font-family: inherit;
-        }
-
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 9999;
-        }
-        .modal-content {
-            background: white; padding: 2rem; border-radius: 16px; text-align: center; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); box-sizing: border-box;
-        }
-        .modal-input {
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; margin-bottom: 15px; box-sizing: border-box; font-size: 1.1rem; text-align: center; letter-spacing: 2px;
-        }
-
-        /* 🌟 品牌載入畫面專屬樣式 */
-        .splash-container {
-            text-align: center; animation: fadeIn 1s ease-in; margin-bottom: 30px;
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        
-        .brand-intro {
-            background: rgba(255, 255, 255, 0.7); 
-            padding: 30px 20px; 
-            border-radius: 16px; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03); 
-            margin-bottom: 25px; 
-            /* 移除原本的預設靠左，讓內部元素自己決定對齊 */
-        }
-        
-        .founder-card {
-            background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); border-left: 6px solid var(--accent-gold); text-align: left; margin-bottom: 25px;
-        }
-        .founder-title { color: var(--accent-gold); font-size: 0.9rem; font-weight: bold; margin-bottom: 6px; letter-spacing: 1px; }
-        .founder-name { color: var(--text-inkblue); font-size: 1.25rem; font-weight: bold; margin-bottom: 10px; }
-        .founder-desc { color: #555; font-size: 0.9rem; line-height: 1.6; text-align: justify; }
-
-        .loading-badge {
-            display: inline-block; background: var(--text-inkblue); color: white; padding: 10px 25px; border-radius: 25px; font-size: 0.9rem; font-weight: bold; letter-spacing: 1px; margin-top: 5px; box-shadow: 0 4px 15px rgba(27, 39, 68, 0.3); animation: pulse 2s infinite;
-        }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-    </style>
+    <link rel="stylesheet" href="style.css">
+    <!-- 🌟 強制清除快取標籤 -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
 </head>
-<body>
+<body style="background-color: #F8F5EF; margin: 0; padding: 0; font-family: 'Microsoft JhengHei', sans-serif;">
 
-    <img src="logo.jpg" alt="她薈 HER HUI Logo" class="main-logo" onerror="this.style.display='none'">
-
-    <div id="top-nav" class="hidden">
-        <button id="btn-member-area" class="nav-btn">會員專區</button>
-        <button id="btn-admin-area" class="nav-btn">管理員專區</button>
+    <!-- Logo 區塊 -->
+    <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
+        <img src="logo.jpg" alt="她薈 HER HUI" style="width: 120px; border-radius: 20px; box-shadow: 0 10px 20px rgba(191,154,90,0.3);">
+    </div>
+    
+    <!-- 頂部導覽列按鈕 (預設隱藏，登入後由 JS 控制顯示) -->
+    <div id="top-nav" class="hidden" style="text-align: center; margin-bottom: 30px;">
+        <button id="btn-member-area" class="btn-primary" style="background-color: #1B2744; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; margin-right: 10px;">會員專區</button>
+        <button id="btn-admin-area" class="btn-secondary" style="background-color: #BF9A5A; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold;">管理員專區</button>
     </div>
 
-    <div id="app-content">
-        <div class="splash-container">
-            <div class="brand-intro">
-                <!-- 🌟 標題區塊置中優化，增加字距提升質感 -->
-                <h3 style="text-align: center; color: var(--text-inkblue); margin-top: 0; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; font-family: 'Noto Serif TC', serif; letter-spacing: 2px;">
-                    她薈 HER HUI<br>
-                    <span style="font-size: 0.9rem; color: var(--accent-gold); font-family: 'Noto Sans TC', sans-serif; letter-spacing: 4px; display: inline-block; margin-top: 5px;">女性生態圈</span>
-                </h3>
-                <!-- 🌟 內文區塊設定為左右對齊 (justify)，排版如雜誌般整齊 -->
-                <p id="dynamic-intro-text" style="text-align: justify; font-size: 0.95rem; color: #444; line-height: 1.8; margin: 0; font-weight: 500;"></p>
-            </div>
-
-            <h4 style="text-align: left; color: var(--text-inkblue); margin-bottom: 12px; font-size: 0.95rem; letter-spacing: 1px;">✦ 創辦人五神獸簡介 ✦</h4>
-            
-            <div class="founder-card">
-                <div id="dynamic-founder-title" class="founder-title"></div>
-                <div id="dynamic-founder-name" class="founder-name"></div>
-                <div id="dynamic-founder-desc" class="founder-desc"></div>
-            </div>
-
-            <div class="loading-badge">系統安全連線中...</div>
-        </div>
+    <!-- 🌟 系統連線載入畫面 -->
+    <div id="loading-overlay" style="text-align: center; margin: 30px 0;">
+        <button style="background: #445677; color: white; border: none; padding: 12px 25px; border-radius: 30px; font-size: 1rem; box-shadow: 0 4px 15px rgba(27,39,68,0.3);">
+            系統安全連線中... ⏳
+        </button>
     </div>
 
-    <script>
-        const introData = [
-            "「她薈 HER HUI」，是由五位女性創辦人、五個品牌共同發起的女性生態圈。",
-            "「薈」是匯聚，也是繁盛。<br>我們相信，女性可甜、可柔、可有個性，也可以很堅定。在這裡，成長不只是事業。",
-            "從認識自己開始，走進生活，梳理關係與角色，找回夢想，最後成為有能力創造的人。",
-            "結合美學、教育、品牌、公關與身心成長，我們透過雙週線上交流與實體聚會，打造一個讓女性被看見、被支持、彼此成就的地方。",
-            "同頻共振，資源串連。<br>讓每一位女性都找到屬於自己的舞台，一起綻放。"
-        ];
+    <!-- 🌟 主程式渲染區 (絕對不能刪除) -->
+    <div id="app-content" style="max-width: 600px; margin: 0 auto; padding: 0 20px 40px;"></div>
 
-        const founderData = [
-            { title: "玄武", name: "李綺綺 (家蓁)", desc: "CIAEDA 中華國際美學教育發展協會理事長，以深厚的美學教育底蘊，為她薈奠定專業與品質。" },
-            { title: "青龍", name: "Elly", desc: "MINPIN 美學苑主理人，將美學化為日常，帶來細膩的質感與溫度。" },
-            { title: "朱雀", name: "黃小鈴 (Eling)", desc: "7E 商學院公關長，居於核心，擅長人脈連結、品牌孵化、策略規劃與資源媒合，讓每一份能量都找到對的位置。" },
-            { title: "白虎", name: "蘇琮瑜", desc: "展翅 SOAR 創辦人，以引領的力量，帶動女性勇敢展翅。" },
-            { title: "白虎", name: "佳佩", desc: "她醒了 SHE AWAKENS 創辦人，以陪伴的溫度，讓每一位女性在這裡醒來、扎根。" }
-        ];
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const randomIntroIndex = Math.floor(Math.random() * introData.length);
-            const randomFounderIndex = Math.floor(Math.random() * founderData.length);
-            
-            document.getElementById('dynamic-intro-text').innerHTML = introData[randomIntroIndex];
-            document.getElementById('dynamic-founder-title').innerText = founderData[randomFounderIndex].title;
-            document.getElementById('dynamic-founder-name').innerText = founderData[randomFounderIndex].name;
-            document.getElementById('dynamic-founder-desc').innerText = founderData[randomFounderIndex].desc;
-        });
-    </script>
-
+    <!-- 外部模組載入 (嚴格遵守依賴順序) -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="JS/cardManager.js"></script>
     <script src="JS/config.js"></script>
@@ -193,6 +41,5 @@
     <script src="JS/uploader.js"></script>
     <script src="JS/member.js"></script>
     <script src="JS/admin.js"></script>
-
 </body>
 </html>
