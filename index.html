@@ -12,41 +12,45 @@
 </head>
 <body style="background-color: #F8F5EF; margin: 0; padding: 0; font-family: 'Microsoft JhengHei', sans-serif;">
 
-    <!-- 頂部導覽列按鈕 (預設隱藏，登入後由 JS 判斷顯示) -->
-    <div id="top-nav" class="hidden" style="background: #1B2744; padding: 10px; text-align: center; position: sticky; top: 0; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-        <button id="btn-member-area" class="btn-secondary" style="margin-right: 10px; background: transparent; color: white; border: 1px solid #BF9A5A;">會員專區</button>
-        <button id="btn-admin-area" class="btn-primary" style="background: #BF9A5A; color: white; border: none;">管理員專區</button>
-    </div>
-
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        
         <!-- Logo 區塊 -->
-        <div style="text-align: center; margin-bottom: 20px;">
+        <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
             <img src="logo.jpg" alt="她薈 HER HUI" style="width: 120px; border-radius: 20px; box-shadow: 0 10px 20px rgba(191,154,90,0.3);">
             <h2 style="color: #1B2744; margin: 15px 0 5px; font-size: 1.5rem; letter-spacing: 2px;">她薈 HER HUI</h2>
             <p style="color: #BF9A5A; margin: 0; font-weight: bold; letter-spacing: 1px;">女性生態圈</p>
         </div>
 
-        <!-- 動態品牌理念區塊 -->
-        <div style="background: #fff; padding: 1.5rem; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; text-align: left;">
-            <p id="dynamic-intro-text" style="color: #444; line-height: 1.8; font-size: 0.95rem; margin: 0;"></p>
+        <!-- 頂部導覽列按鈕 (移至 Logo 下方，無額外背景，預設完全隱藏) -->
+        <div id="top-nav" style="display: none; text-align: center; margin-bottom: 30px;">
+            <button id="btn-member-area" class="btn-secondary" style="margin-right: 10px; background: transparent; color: #1B2744; border: 2px solid #BF9A5A; padding: 10px 20px; border-radius: 8px; font-weight: bold;">會員專區</button>
+            <button id="btn-admin-area" class="btn-primary" style="background: #BF9A5A; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold;">管理員專區</button>
         </div>
 
-        <!-- 動態創辦人神獸區塊 -->
-        <h4 style="color: #1B2744; margin: 0 0 10px; display: flex; align-items: center;"><span style="color: #BF9A5A; margin-right: 5px;">✦</span> 創辦人五神獸簡介 <span style="color: #BF9A5A; margin-left: 5px;">✦</span></h4>
-        <div id="dynamic-founder-card" style="background: #fff; padding: 1.5rem; border-radius: 16px; border-left: 5px solid #BF9A5A; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 12px; text-align: left; transition: all 0.3s ease;">
-            <p id="dynamic-founder-title" style="font-weight: bold; margin: 0 0 5px; font-size: 0.95rem;"></p>
-            <h3 id="dynamic-founder-name" style="margin: 0 0 10px; font-size: 1.3rem;"></h3>
-            <p id="dynamic-founder-desc" style="color: #555; line-height: 1.7; font-size: 0.9rem; margin: 0;"></p>
-        </div>
-        
-        <!-- 固定的品牌金句 -->
-        <p style="text-align: center; color: #BF9A5A; font-weight: bold; font-size: 0.95rem; margin-bottom: 30px; letter-spacing: 1px;">五種力量，五種專業，共同匯聚成「她薈」。</p>
+        <!-- 🌟 啟動等待畫面區塊 (系統連線完成後會整塊隱藏) -->
+        <div id="startup-section">
+            <!-- 動態品牌理念區塊 (已拆為 5 段短敘述) -->
+            <div style="background: #fff; padding: 1.5rem; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; text-align: left;">
+                <p id="dynamic-intro-text" style="color: #444; line-height: 1.8; font-size: 0.95rem; margin: 0;"></p>
+            </div>
 
-        <!-- 系統連線載入畫面 -->
-        <div id="loading-overlay" style="text-align: center; margin: 30px 0;">
-            <button style="background: #445677; color: white; border: none; padding: 12px 25px; border-radius: 30px; font-size: 1rem; box-shadow: 0 4px 15px rgba(27,39,68,0.3);">
-                系統安全連線中... ⏳
-            </button>
+            <!-- 動態創辦人神獸區塊 -->
+            <h4 style="color: #1B2744; margin: 0 0 10px; display: flex; align-items: center;"><span style="color: #BF9A5A; margin-right: 5px;">✦</span> 創辦人五神獸簡介 <span style="color: #BF9A5A; margin-left: 5px;">✦</span></h4>
+            <div id="dynamic-founder-card" style="background: #fff; padding: 1.5rem; border-radius: 16px; border-left: 5px solid #BF9A5A; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 12px; text-align: left; transition: all 0.3s ease;">
+                <p id="dynamic-founder-title" style="font-weight: bold; margin: 0 0 5px; font-size: 0.95rem;"></p>
+                <h3 id="dynamic-founder-name" style="margin: 0 0 10px; font-size: 1.3rem;"></h3>
+                <p id="dynamic-founder-desc" style="color: #555; line-height: 1.7; font-size: 0.9rem; margin: 0;"></p>
+            </div>
+            
+            <!-- 固定的品牌金句 -->
+            <p style="text-align: center; color: #BF9A5A; font-weight: bold; font-size: 0.95rem; margin-bottom: 30px; letter-spacing: 1px;">五種力量，五種專業，共同匯聚成「她薈」。</p>
+
+            <!-- 系統連線載入畫面 -->
+            <div id="loading-overlay" style="text-align: center; margin: 30px 0;">
+                <button style="background: #445677; color: white; border: none; padding: 12px 25px; border-radius: 30px; font-size: 1rem; box-shadow: 0 4px 15px rgba(27,39,68,0.3);">
+                    系統安全連線中... ⏳
+                </button>
+            </div>
         </div>
 
         <!-- 系統主要渲染容器 -->
@@ -55,30 +59,29 @@
 
     <!-- 動態資料與隨機渲染邏輯 (包含神獸專屬配色) -->
     <script>
-        // 理念介紹拆分為三個輪播段落
+        // 理念介紹拆分為五個精簡段落
         const introData = [
-            "她薈 HER HUI，是由五位女性創辦人、五個品牌共同發起的女性生態圈。<br><br>「薈」是匯聚，也是繁盛。<br>我們相信，女性可甜、可柔、可有個性，也可以很堅定。在這裡，成長不只是事業。",
-            "從認識自己開始，走進生活，梳理關係與角色，找回夢想，最後成為有能力創造的人。<br><br>同頻共振，資源串連，<br>讓每一位女性都找到屬於自己的舞台，一起綻放。",
-            "她薈結合美學、教育、品牌、公關與身心成長，透過雙週線上主題交流，以及每月台北、台中輪替的實體聚會，打造一個讓女性被看見、被支持、彼此成就的地方。"
+            "她薈 HER HUI，是由五位女性創辦人、五個品牌共同發起的女性生態圈。",
+            "「薈」是匯聚，也是繁盛。<br>我們相信，女性可甜、可柔、可有個性，也可以很堅定。",
+            "在這裡，成長不只是事業。<br>從認識自己開始，走進生活，梳理關係與角色，找回夢想，最後成為有能力創造的人。",
+            "她薈結合美學、教育、品牌、公關與身心成長，透過雙週線上主題交流，以及每月台北、台中輪替的實體聚會，彼此成就。",
+            "同頻共振，資源串連，<br>讓每一位女性都找到屬於自己的舞台，一起綻放。"
         ];
 
-        // 創辦人名單與專屬神獸配色
         const founderData = [
-            { title: "玄武", name: "李綺綺（家蓁）", desc: "CIAEDA 中華國際美學教育發展協會理事長，<br>以深厚的美學教育底蘊，為她薈奠定專業與品質。", color: "#1B2744" }, // 深藏青
-            { title: "青龍", name: "Elly", desc: "MINPIN 美學苑主理人，<br>將美學化為日常，帶來細膩的質感與溫度。", color: "#2E7D32" }, // 松花綠
-            { title: "朱雀", name: "黃小鈴 Eling", desc: "7E 商學院公關長，居於核心，<br>擅長人脈連結、品牌孵化、策略規劃與資源媒合，讓每一份能量都找到對的位置。", color: "#C62828" }, // 胭脂紅
-            { title: "白虎", name: "蘇琮瑜", desc: "展翅 SOAR 創辦人，<br>以引領的力量，帶動女性勇敢展翅。", color: "#BF9A5A" }, // 質感金
-            { title: "白虎", name: "佳佩", desc: "她醒了 SHE AWAKENS 創辦人，<br>以陪伴的溫度，讓每一位女性在這裡醒來、扎根。", color: "#BF9A5A" } // 質感金
+            { title: "玄武", name: "李綺綺（家蓁）", desc: "CIAEDA 中華國際美學教育發展協會理事長，<br>以深厚的美學教育底蘊，為她薈奠定專業與品質。", color: "#1B2744" },
+            { title: "青龍", name: "Elly", desc: "MINPIN 美學苑主理人，<br>將美學化為日常，帶來細膩的質感與溫度。", color: "#2E7D32" },
+            { title: "朱雀", name: "黃小鈴 Eling", desc: "7E 商學院公關長，居於核心，<br>擅長人脈連結、品牌孵化、策略規劃與資源媒合，讓每一份能量都找到對的位置。", color: "#C62828" },
+            { title: "白虎", name: "蘇琮瑜", desc: "展翅 SOAR 創辦人，<br>以引領的力量，帶動女性勇敢展翅。", color: "#BF9A5A" },
+            { title: "白虎", name: "佳佩", desc: "她醒了 SHE AWAKENS 創辦人，<br>以陪伴的溫度，讓每一位女性在這裡醒來、扎根。", color: "#BF9A5A" }
         ];
 
         document.addEventListener('DOMContentLoaded', () => {
             try {
-                // 處理理念輪播
                 const randomIntroIndex = Math.floor(Math.random() * introData.length);
                 let introEl = document.getElementById('dynamic-intro-text');
                 if (introEl) introEl.innerHTML = introData[randomIntroIndex];
 
-                // 處理神獸卡片輪播與顏色渲染
                 const randomFounderIndex = Math.floor(Math.random() * founderData.length);
                 const founder = founderData[randomFounderIndex];
                 
@@ -89,18 +92,14 @@
 
                 if (titleEl) {
                     titleEl.innerText = founder.title;
-                    titleEl.style.color = founder.color; // 渲染神獸專屬色
+                    titleEl.style.color = founder.color;
                 }
                 if (nameEl) {
                     nameEl.innerText = founder.name;
-                    nameEl.style.color = founder.color; // 渲染神獸專屬色
+                    nameEl.style.color = founder.color;
                 }
-                if (descEl) {
-                    descEl.innerHTML = founder.desc;
-                }
-                if (cardEl) {
-                    cardEl.style.borderLeftColor = founder.color; // 渲染卡片左側邊框色
-                }
+                if (descEl) descEl.innerHTML = founder.desc;
+                if (cardEl) cardEl.style.borderLeftColor = founder.color;
             } catch (e) {
                 console.error("動態資料載入異常：", e);
             }
@@ -115,13 +114,5 @@
     <script src="JS/uploader.js"></script>
     <script src="JS/member.js"></script>
     <script src="JS/admin.js"></script>
-
-    <!-- 連線卡滯備用隱藏開關 -->
-    <script>
-        setTimeout(() => {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            if (loadingOverlay) loadingOverlay.style.display = 'none';
-        }, 6000);
-    </script>
 </body>
 </html>
