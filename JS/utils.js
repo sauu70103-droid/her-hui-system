@@ -3,14 +3,32 @@
  * 說明：共用輔助函數、API 封裝與日期格式化工具
  */
 
-// 🌟 統一 API 呼叫引擎 (有效減少程式碼重複與 Token 消耗)
+// 🌟 智能容器尋找器：防呆，就算 HTML 容器被刪除也會自動建立
+function getAppContent() {
+    let el = document.getElementById('app-content');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'app-content';
+        el.style.maxWidth = '600px';
+        el.style.margin = '0 auto';
+        el.style.padding = '0 20px 40px';
+        document.body.appendChild(el);
+    }
+    return el;
+}
+
 async function callApi(payload) {
-    const response = await fetch(GAS_API_URL, { 
-        method: 'POST', 
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-    });
-    return await response.json();
+    try {
+        const response = await fetch(GAS_API_URL, { 
+            method: 'POST', 
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+        return await response.json();
+    } catch (e) {
+        console.error("API 錯誤", e);
+        throw e;
+    }
 }
 
 function getDriveImageUrl(rawUrl) {
