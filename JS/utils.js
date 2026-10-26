@@ -1,9 +1,8 @@
 /**
  * 檔案：JS/utils.js
- * 說明：共用輔助函數、API 封裝與日期格式化工具
+ * 說明：共用輔助函數與畫面偵錯工具
  */
 
-// 🌟 智能容器尋找器：防呆，就算 HTML 容器被刪除也會自動建立
 function getAppContent() {
     let el = document.getElementById('app-content');
     if (!el) {
@@ -17,6 +16,20 @@ function getAppContent() {
     return el;
 }
 
+// 🌟 全新畫面偵錯工具：遇到錯誤直接顯示在畫面上，方便手機排查
+function sysDebugLog(context, err) {
+    console.error(context, err);
+    let el = getAppContent();
+    if (!el) return;
+    el.innerHTML = `
+        <div style="background:#ffebee; border-left:5px solid #d32f2f; padding:15px; margin-bottom:15px; text-align:left; border-radius:8px;">
+            <p style="color:#d32f2f; margin:0 0 10px; font-weight:bold;">🛠️ [系統偵錯] ${context}</p>
+            <p style="color:#333; margin:0; font-size:13px; font-family:monospace;">${err.message || err}</p>
+            <textarea style="width:100%; height:100px; margin-top:10px; font-size:10px; background:#fff; border:1px solid #ffcdd2;" readonly>${err.stack || ''}</textarea>
+        </div>
+    ` + el.innerHTML;
+}
+
 async function callApi(payload) {
     try {
         const response = await fetch(GAS_API_URL, { 
@@ -26,7 +39,6 @@ async function callApi(payload) {
         });
         return await response.json();
     } catch (e) {
-        console.error("API 錯誤", e);
         throw e;
     }
 }
