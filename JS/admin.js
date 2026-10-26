@@ -1,6 +1,6 @@
 /**
  * 檔案：JS/admin.js
- * 說明：管理員後台業務邏輯 (修復按鈕綁定、審核、活動管理、報名與寄信)
+ * 說明：管理員後台業務邏輯 
  */
 
 function showAdminLoginModal() {
@@ -42,19 +42,17 @@ async function verifyAdminPassword() {
 }
 
 async function fetchAndRenderAdminData() {
-    const contentArea = document.getElementById('app-content'); 
-    if(!contentArea) return;
-    contentArea.innerHTML = `<div class="loading-text">資料讀取中...</div>`;
+    getAppContent().innerHTML = `<div class="loading-text">資料讀取中...</div>`;
     try {
         const result = await callApi({ action: 'getAdminData' });
         if (result.success) { 
             adminActivitiesData = result.data.activities || []; 
             buildAdminDashboardUI(result.data); 
         } else {
-            contentArea.innerHTML = `<p style="color:red; text-align:center;">讀取失敗：<br>${result.message || '未知錯誤'}</p>`;
+            getAppContent().innerHTML = `<p style="color:red; text-align:center;">讀取失敗：<br>${result.message || '未知錯誤'}</p>`;
         }
     } catch (error) { 
-        contentArea.innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; 
+        getAppContent().innerHTML = `<p style="color:red; text-align:center;">網路連線異常</p>`; 
     }
 }
 
@@ -282,15 +280,15 @@ function buildAdminDashboardUI(data) {
     }
     
     html += `</div>`;
-    
-    // 🌟 確保渲染到畫面上，並移除載入提示
-    let contentArea = document.getElementById('app-content');
-    if(contentArea) contentArea.innerHTML = html;
+    getAppContent().innerHTML = html;
 }
 
 window.changeMemberLevelBtn = async function(targetUid) {
-    const dateInput = document.getElementById(`change-date-${targetUid}`).value;
-    const levelInput = document.getElementById(`change-level-${targetUid}`).value;
+    let dateEl = document.getElementById(`change-date-${targetUid}`);
+    let levelEl = document.getElementById(`change-level-${targetUid}`);
+    const dateInput = dateEl ? dateEl.value : '';
+    const levelInput = levelEl ? levelEl.value : '一般會員';
+    
     if (!dateInput) return alert('請選擇到期日');
     if (!confirm(`確認將會員等級變更為「${levelInput}」嗎？\n(系統將自動停用舊編號，並核發全新的一組會員編號！)`)) return;
     try {
@@ -300,7 +298,7 @@ window.changeMemberLevelBtn = async function(targetUid) {
 }
 
 // ==========================================
-// 🌟 管理員：報名名單與寄信功能
+// 🌟 管理員：名單檢視與群發信件功能
 // ==========================================
 window.openAdminRegistrations = async function(actId, actName) {
     const btn = event.target; const originalText = btn.innerText; btn.innerText = "載入名單中..."; btn.disabled = true;
@@ -375,11 +373,12 @@ window.openAdminRegistrations = async function(actId, actName) {
                 </div>`);
         } else alert('無法取得名單：' + result.message);
     } catch (error) { alert('系統連線異常'); }
-    btn.innerText = originalText; btn.disabled = false;
+    if(btn) { btn.innerText = originalText; btn.disabled = false; }
 };
 
 window.updateEmailSelection = function() {
-    let target = document.getElementById('email-target').value;
+    let targetEl = document.getElementById('email-target');
+    let target = targetEl ? targetEl.value : 'all';
     let checkboxes = document.querySelectorAll('.email-checkbox');
     checkboxes.forEach(cb => {
         if (target === 'all') cb.checked = true;
@@ -392,21 +391,25 @@ window.loadEmailTemplate = function(type, actName) {
     let subject = document.getElementById('email-subject');
     let body = document.getElementById('email-body');
     let target = document.getElementById('email-target');
-    if (type === 'reminder') {
-        subject.value = `【她薈 HER HUI】活動行前提醒：${actName}`;
-        body.value = `溫馨提醒您，您報名的精彩活動即將開始！\n請記得保留時間並將活動加入行事曆，期待與您相見！`;
-        target.value = 'all';
-    } else {
-        subject.value = `【她薈 HER HUI】活動繳費提醒：${actName}`;
-        body.value = `系統提醒您，您報名的活動尚未完成繳費確認喔！\n若您已經完成繳費，請忽略此信，或主動聯繫管理員為您進行人工確認。\n感謝您的配合！`;
-        target.value = 'unpaid';
+    if(subject && body && target) {
+        if (type === 'reminder') {
+            subject.value = `【她薈 HER HUI】活動行前提醒：${actName}`;
+            body.value = `溫馨提醒您，您報名的精彩活動即將開始！\n請記得保留時間並將活動加入行事曆，期待與您相見！`;
+            target.value = 'all';
+        } else {
+            subject.value = `【她薈 HER HUI】活動繳費提醒：${actName}`;
+            body.value = `系統提醒您，您報名的活動尚未完成繳費確認喔！\n若您已經完成繳費，請忽略此信，或主動聯繫管理員為您進行人工確認。\n感謝您的配合！`;
+            target.value = 'unpaid';
+        }
+        updateEmailSelection(); 
     }
-    updateEmailSelection(); 
 };
 
 window.sendCustomEventEmail = async function(actId) {
-    let subject = document.getElementById('email-subject').value.trim();
-    let bodyText = document.getElementById('email-body').value.trim();
+    let subjectEl = document.getElementById('email-subject');
+    let bodyEl = document.getElementById('email-body');
+    let subject = subjectEl ? subjectEl.value.trim() : '';
+    let bodyText = bodyEl ? bodyEl.value.trim() : '';
     let selectedUids = Array.from(document.querySelectorAll('.email-checkbox:checked')).map(cb => cb.value);
 
     if (selectedUids.length === 0) return alert("請至少勾選一位收件人！");
@@ -418,7 +421,7 @@ window.sendCustomEventEmail = async function(actId) {
         const result = await callApi({ action: 'sendEventEmails', uid: currentLiffProfile.userId, actId: actId, targetType: 'custom', subject: subject, customText: bodyText, selectedUids: selectedUids });
         alert(result.success ? result.message : '寄信失敗：' + result.message);
     } catch (error) { alert('系統連線異常，信件可能未完整送出'); }
-    btn.innerText = originalText; btn.disabled = false;
+    if(btn) { btn.innerText = originalText; btn.disabled = false; }
 };
 
 window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElement) {
@@ -439,18 +442,27 @@ window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElem
 // 🌟 管理員：新增、編輯與刪除活動
 // ==========================================
 window.submitActivity = async function() {
-    const actName = document.getElementById('act-name').value.trim();
+    let actNameEl = document.getElementById('act-name');
+    const actName = actNameEl ? actNameEl.value.trim() : '';
     if (!actName) return alert('活動名稱為必填項目！');
     if (currentImageAssets.some(a => a.type === 'file')) return alert('您有圖片尚未點擊「確認上傳」，請先上傳鎖定後再發布！');
-    const btn = document.getElementById('submit-act-btn'); btn.innerText = "資料處理中..."; btn.disabled = true;
     
-    let targetAudienceStr = document.getElementById('act-target').value;
+    let btn = document.getElementById('submit-act-btn'); 
+    if(btn) { btn.innerText = "資料處理中..."; btn.disabled = true; }
+    
+    let targetEl = document.getElementById('act-target');
+    let targetAudienceStr = targetEl ? targetEl.value : '所有會員';
     
     const actData = {
-        name: actName, type: document.getElementById('act-type').value, targetAudience: targetAudienceStr,
-        date: document.getElementById('act-date').value, deadline: document.getElementById('act-deadline').value, 
-        location: document.getElementById('act-location').value.trim(), fee: document.getElementById('act-fee').value.trim(), 
-        capacity: document.getElementById('act-capacity').value.trim(), description: document.getElementById('act-desc').value.trim(), 
+        name: actName, 
+        type: document.getElementById('act-type') ? document.getElementById('act-type').value : '實體課程', 
+        targetAudience: targetAudienceStr,
+        date: document.getElementById('act-date') ? document.getElementById('act-date').value : '', 
+        deadline: document.getElementById('act-deadline') ? document.getElementById('act-deadline').value : '', 
+        location: document.getElementById('act-location') ? document.getElementById('act-location').value.trim() : '', 
+        fee: document.getElementById('act-fee') ? document.getElementById('act-fee').value.trim() : '', 
+        capacity: document.getElementById('act-capacity') ? document.getElementById('act-capacity').value.trim() : '', 
+        description: document.getElementById('act-desc') ? document.getElementById('act-desc').value.trim() : '', 
         mediaUrls: currentImageAssets.map(a => a.url)
     };
     let reqBody = { action: editingActivityId ? 'updateActivity' : 'createActivity', uid: currentLiffProfile.userId, activityData: actData };
@@ -460,7 +472,7 @@ window.submitActivity = async function() {
         if (result.success) { alert(editingActivityId ? '活動更新成功！' : '活動發布成功！'); cancelEditActivity(); fetchAndRenderAdminData(); } 
         else alert('操作失敗：' + result.message);
     } catch (error) { alert('系統連線異常'); }
-    btn.disabled = false;
+    if(btn) btn.disabled = false;
 };
 
 window.loadActivityForEdit = function(actId) {
