@@ -1,7 +1,17 @@
 /**
  * 檔案：JS/member.js
+ * 說明：會員前台業務邏輯 (修復載入時序差問題，確保系統 100% 啟動)
  */
-document.addEventListener('DOMContentLoaded', () => { safeInitialize(); });
+
+// ==========================================
+// 🌟 系統初始化與登入邏輯 (防彈版啟動引擎)
+// ==========================================
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', safeInitialize);
+} else {
+    // 若網頁已經載入完畢，直接啟動，不再死等訊號
+    safeInitialize();
+}
 
 async function safeInitialize() {
     try {
@@ -41,6 +51,9 @@ async function checkUserRoleAndStatus(uid) {
     }
 }
 
+// ==========================================
+// 🌟 會員前台與註冊邏輯
+// ==========================================
 function renderRegistrationForm() {
     const labelStyle = "font-size: 0.9rem; font-weight: bold; color: var(--text-inkblue); display: block; margin-bottom: 6px; text-align: left;";
     const inputStyle = "width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #BF9A5A; font-size: 1rem; margin-bottom: 1.2rem; box-sizing: border-box;";
@@ -91,7 +104,6 @@ async function submitRegistration() {
 
 function renderMemberDashboard(userData) {
     try {
-        // 強制空值保護，避免因為後端資料不完整導致崩潰
         if (!userData) throw new Error("傳入的會員資料為空");
         userData.profile = userData.profile || {};
 
@@ -234,6 +246,9 @@ window.submitProfileUpdate = async function() {
     } catch (error) { sysDebugLog('更新個人資料失敗', error); btn.innerText = '儲存更新'; btn.disabled = false; }
 };
 
+// ==========================================
+// 🌟 活動與歷史紀錄
+// ==========================================
 async function fetchMemberActivitiesAndHistory(uid) {
     try {
         const [actRes, histRes] = await Promise.all([
