@@ -1,5 +1,6 @@
 /**
  * 檔案：JS/admin.js
+ * 說明：管理員後台業務邏輯 (優化：正式會員名單分類預設收合、新增人數統計與智能搜尋展開)
  */
 
 function showAdminLoginModal() {
@@ -23,7 +24,7 @@ async function verifyAdminPassword() {
     if(btn) btn.innerText = "驗證中...";
     try {
         let pwdInput = document.getElementById('admin-pwd');
-        const result = await callApi({ action: 'adminLogin', uid: currentLiffProfile.userId, password: pwdInput ? pwdInput.value : '' });
+        const result = await callApi({ action: 'adminLogin', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, password: pwdInput ? pwdInput.value : '' });
         
         if (result.success) { 
             isAdminVerified = true; 
@@ -40,7 +41,7 @@ async function verifyAdminPassword() {
 async function fetchAndRenderAdminData() {
     getAppContent().innerHTML = `<div class="loading-text">資料讀取中...</div>`;
     try {
-        const result = await callApi({ action: 'getAdminData' });
+        const result = await callApi({ action: 'getAdminData', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId });
         if (result.success) { 
             adminActivitiesData = result.data.activities || []; 
             buildAdminDashboardUI(result.data); 
@@ -163,7 +164,9 @@ function buildAdminDashboardUI(data) {
 
         html += getPremiumHeader('👥', '正式會員名單總覽');
         html += `<input type="text" id="member-search" class="admin-search-bar" placeholder="🔍 搜尋姓名、電話、公司..." onkeyup="filterMembers()" style="padding: 12px; border-radius: 10px; margin-bottom: 20px;">`;
+        
         let founderList = '', annualList = '', generalList = '';
+        let founderCount = 0, annualCount = 0, generalCount = 0;
         
         data.active.forEach(m => {
             let displayPhone = m.phone ? String(m.phone).replace(/^'/, '') : '-';
@@ -198,10 +201,29 @@ function buildAdminDashboardUI(data) {
                         </div>
                     </details>
                 </div>`;
-            if (m.status === '創始會員') founderList += cardHtml; else if (m.status === '她薈會員') annualList += cardHtml; else generalList += cardHtml;
+                
+            if (m.status === '創始會員') { founderList += cardHtml; founderCount++; } 
+            else if (m.status === '她薈會員') { annualList += cardHtml; annualCount++; } 
+            else { generalList += cardHtml; generalCount++; }
         });
         
-        html += `<h5 style="color: var(--accent-gold); font-size: 1.1rem; margin-top: 20px;">👑 創始會員</h5><div>${founderList}</div><h5 style="color: var(--accent-gold); font-size: 1.1rem; margin-top: 25px;">🌸 她薈會員</h5><div>${annualList}</div><h5 style="color: var(--accent-gold); font-size: 1.1rem; margin-top: 25px;">💎 一般會員</h5><div>${generalList}</div></div>`;
+        // 🌟 統一把會員分類改為折疊式面板，並動態帶入人數統計
+        const getCategoryHtml = (icon, title, count, listHtml) => `
+            <details class="member-category-details" style="margin-top: 15px; cursor: pointer; background: #fff; padding: 15px; border-radius: 12px; border: 1px solid #eee; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                <summary style="color: var(--accent-gold); font-size: 1.1rem; font-weight: bold; outline: none; list-style: none; display: flex; justify-content: space-between; align-items: center;">
+                    <span>${icon} ${title} <span style="font-size: 0.9rem; color: #666; font-weight: normal;">(共 ${count} 位)</span></span>
+                    <span style="font-size: 0.85rem; color: #999;">▼ 點擊展開</span>
+                </summary>
+                <div style="margin-top: 15px; border-top: 1px dashed #eee; padding-top: 15px;">
+                    ${listHtml || '<p style="font-size:0.9rem; color:#999; text-align:center; margin:0;">目前無此類會員</p>'}
+                </div>
+            </details>
+        `;
+
+        html += getCategoryHtml('👑', '創始會員', founderCount, founderList);
+        html += getCategoryHtml('🌸', '她薈會員', annualCount, annualList);
+        html += getCategoryHtml('💎', '一般會員', generalCount, generalList);
+        html += `</div>`;
 
         html += `<div id="admin-act-sec" style="display:none;">`;
         html += getPremiumHeader('📢', '新增活動發布');
@@ -269,7 +291,7 @@ window.changeMemberLevelBtn = async function(targetUid) {
     if (!dateInput) return alert('請選擇到期日');
     if (!confirm(`確認將會員等級變更為「${levelInput}」嗎？\n(系統將自動停用舊編號，並核發全新的一組會員編號！)`)) return;
     try {
-        const result = await callApi({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput });
+        const result = await callApi({ action: 'approveMember', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput });
         if (result.success) { alert('變更成功！新編號已核發。'); fetchAndRenderAdminData(); }
     } catch (error) { sysDebugLog('變更等級失敗', error); }
 }
@@ -277,7 +299,7 @@ window.changeMemberLevelBtn = async function(targetUid) {
 window.openAdminRegistrations = async function(actId, actName) {
     const btn = event.target; const originalText = btn.innerText; btn.innerText = "載入名單中..."; btn.disabled = true;
     try {
-        const result = await callApi({ action: 'getEventRegistrations', actId: actId });
+        const result = await callApi({ action: 'getEventRegistrations', actId: actId, uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId });
         if (result.success) {
             let regs = result.data; let listHtml = '';
             let totalEntries = regs.length; let totalPax = regs.reduce((sum, reg) => sum + parseInt(reg.pax), 0);
@@ -344,7 +366,7 @@ window.sendCustomEventEmail = async function(actId) {
     if (!confirm(`確定要發送信件給勾選的 ${selectedUids.length} 人嗎？`)) return;
     let btn = event.target; let originalText = btn.innerText; btn.innerText = "發送中..."; btn.disabled = true;
     try {
-        const result = await callApi({ action: 'sendEventEmails', uid: currentLiffProfile.userId, actId: actId, targetType: 'custom', subject: subject, customText: bodyText, selectedUids: selectedUids });
+        const result = await callApi({ action: 'sendEventEmails', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, actId: actId, targetType: 'custom', subject: subject, customText: bodyText, selectedUids: selectedUids });
         alert(result.success ? result.message : '寄信失敗：' + result.message);
     } catch (error) { sysDebugLog('寄信失敗', error); }
     if(btn) { btn.innerText = originalText; btn.disabled = false; }
@@ -353,7 +375,7 @@ window.sendCustomEventEmail = async function(actId) {
 window.updateRegStatus = async function(sheetName, rowIdx, newStatus, selectElement) {
     selectElement.disabled = true;
     try {
-        const result = await callApi({ action: 'updateRegStatus', uid: currentLiffProfile.userId, sheetName: sheetName, rowIdx: rowIdx, newStatus: newStatus });
+        const result = await callApi({ action: 'updateRegStatus', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, sheetName: sheetName, rowIdx: rowIdx, newStatus: newStatus });
         if (result.success) { 
             let card = selectElement.closest('div').parentElement;
             card.style.borderLeftColor = newStatus === '已繳費' ? '#4CAF50' : (newStatus === '未繳費' ? '#d9534f' : '#BF9A5A'); 
@@ -376,7 +398,7 @@ window.submitActivity = async function() {
         capacity: document.getElementById('act-capacity') ? document.getElementById('act-capacity').value.trim() : '', description: document.getElementById('act-desc') ? document.getElementById('act-desc').value.trim() : '', 
         mediaUrls: currentImageAssets.map(a => a.url)
     };
-    let reqBody = { action: editingActivityId ? 'updateActivity' : 'createActivity', uid: currentLiffProfile.userId, activityData: actData };
+    let reqBody = { action: editingActivityId ? 'updateActivity' : 'createActivity', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, activityData: actData };
     if (editingActivityId) reqBody.actId = editingActivityId;
     try {
         const result = await callApi(reqBody);
@@ -422,29 +444,42 @@ window.cancelEditActivity = function() {
 window.deleteAdminActivity = async function(actId, actName) {
     if (!confirm(`⚠️ 確定要刪除活動「${actName}」嗎？此動作無法復原！`)) return;
     try {
-        const result = await callApi({ action: 'deleteActivity', uid: currentLiffProfile.userId, actId: actId });
+        const result = await callApi({ action: 'deleteActivity', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, actId: actId });
         if (result.success) { alert('活動已刪除！'); fetchAndRenderAdminData(); } else alert('刪除失敗');
     } catch (error) { sysDebugLog('刪除活動失敗', error); }
 };
 
+// 🌟 優化：搜尋時自動展開所有分類
 function filterMembers() {
     const searchInput = document.getElementById('member-search');
     const input = searchInput ? searchInput.value.toLowerCase() : '';
-    document.querySelectorAll('.member-item').forEach(item => { item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none"; });
+    const isSearching = input.length > 0;
+    
+    document.querySelectorAll('.member-item').forEach(item => { 
+        item.style.display = item.innerText.toLowerCase().includes(input) ? "block" : "none"; 
+    });
+    
+    // 如果有輸入搜尋文字，自動展開下方的分類；若清空則保留使用者操作的狀態
+    document.querySelectorAll('.member-category-details').forEach(details => {
+        if (isSearching) {
+            details.open = true;
+        }
+    });
 }
+
 async function approveMemberBtn(targetUid) {
     let dateEl = document.getElementById(`date-${targetUid}`); let levelEl = document.getElementById(`level-${targetUid}`);
     const dateInput = dateEl ? dateEl.value : ''; const levelInput = levelEl ? levelEl.value : '一般會員';
     if (!dateInput) return alert('請選擇到期日'); if (!confirm(`確認升級為「${levelInput}」嗎？`)) return;
     try {
-        const result = await callApi({ action: 'approveMember', uid: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput });
+        const result = await callApi({ action: 'approveMember', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, targetUid: targetUid, expiryDate: dateInput, memberLevel: levelInput });
         if (result.success) { alert('核准成功！'); fetchAndRenderAdminData(); }
     } catch (error) { sysDebugLog('核准會員失敗', error); }
 }
 async function rejectMemberBtn(targetUid) {
     if (!confirm('確定要駁回嗎？')) return;
     try {
-        const result = await callApi({ action: 'rejectMember', uid: currentLiffProfile.userId, targetUid: targetUid });
+        const result = await callApi({ action: 'rejectMember', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, targetUid: targetUid });
         if (result.success) { alert('已駁回！'); fetchAndRenderAdminData(); }
     } catch (error) { sysDebugLog('駁回會員失敗', error); }
 }
@@ -453,14 +488,14 @@ async function extendMemberBtn(targetUid) {
     const newDate = dateEl ? dateEl.value : '';
     if (!newDate) return alert('請選擇到期日');
     try {
-        const result = await callApi({ action: 'extendMemberExpiry', uid: currentLiffProfile.userId, targetUid: targetUid, newDate: newDate });
+        const result = await callApi({ action: 'extendMemberExpiry', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, targetUid: targetUid, newDate: newDate });
         if (result.success) { alert('更新延期成功！'); fetchAndRenderAdminData(); }
     } catch (error) { sysDebugLog('延期失敗', error); }
 }
 async function terminateMemberBtn(targetUid, memberName) {
     if (!confirm(`警告：確定停止「${memberName}」會籍嗎？`)) return;
     try {
-        const result = await callApi({ action: 'terminateMember', uid: currentLiffProfile.userId, targetUid: targetUid });
+        const result = await callApi({ action: 'terminateMember', uid: currentLiffProfile.userId, userId: currentLiffProfile.userId, lineId: currentLiffProfile.userId, targetUid: targetUid });
         if (result.success) { alert('已停權。'); fetchAndRenderAdminData(); }
     } catch (error) { sysDebugLog('停權失敗', error); }
 }
